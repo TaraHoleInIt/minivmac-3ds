@@ -314,21 +314,7 @@ static u16* TempTextureBuffer = NULL;
 #endif
 
 int VideoGetBPP( void ) {
-#if vMacScreenDepth == 0
-	return 1;
-#elif vMacScreenDepth == 2
-	if ( UseColorMode == trueblnr )
-		return 4;
-	
-	return 1;
-#elif vMacScreenDepth == 3
-	if ( UseColorMode == trueblnr )
-		return 8;
-		
-	return 1;
-#endif
-
-	return 1;
+	return UseColorMode ? ( 1 << vMacScreenDepth ) : 1;
 }
 
 /*
@@ -420,8 +406,8 @@ void ConvertFBTo565( u8* Src, u16* Dest, int Size ) {
 
 void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	u16* TempBuffer = ( u16* ) TempTextureBuffer;
-	blnr FirstUpdate = trueblnr;
-	u8* Ptr = NULL;
+	static int LastDepth = 1;
+	int Offset = 0;
 	int Depth = 0;
 	u32 Taken = 0;
 	u32 Start = 0;
@@ -429,14 +415,6 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	static u32 Longest = 0;
 	
 	Start = osGetTime( );
-
-#if vMacScreenDepth > 0
-	if ( FirstUpdate == trueblnr ) {
-		ColorMappingChanged = trueblnr;
-		FirstUpdate = falseblnr;
-	}
-#endif
-
 	Depth = VideoGetBPP( );
 	
 	if ( Depth == 1 ) {
@@ -450,17 +428,19 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	}
 	
 #if vMacScreenDepth != 0
-	if ( ColorMappingChanged == trueblnr ) {
+	if ( ColorMappingChanged == trueblnr || Depth != LastDepth ) {
+		iprintf( "Depth changed to %d from %d\n", LastDepth, Depth );
+	
 		#if vMacScreenDepth == 2
 			MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
 		#elif vMacScreenDepth == 3
 			MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
 		#endif
 		
-		ColorMappingChanged = falseblnr;
+		LastDepth = Depth;
 	}
 #endif
-	
+
 	if ( Left < 0 ) Left = 0;
 	if ( Left > vMacScreenWidth ) Left = vMacScreenWidth;
 	
@@ -475,30 +455,10 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	
 	for ( ; Top < Bottom; Top++ ) {
 		TempBuffer =  ( u16* ) &TempTextureBuffer[ ( ( Top * 512 )  + Left ) ];
-		
-		switch ( Depth ) {
-			case 1: {
-				Ptr = &Src[ ( ( Top * vMacScreenWidth ) + Left ) / ( 8 / Depth ) ];
-				break;
-			}
-			case 4: {
-				Ptr = &Src[ ( ( Top * vMacScreenWidth ) / 2 ) + ( Left / 2 ) ];
-				break;
-			}
-			case 8: {
-				Ptr = &Src[ ( Top * vMacScreenWidth ) + Left ];
-				break;
-			}
-			default: {
-				return;
-			}
-		};	
+		Offset = ( ( Top * vMacScreenWidth ) / ( 8 / Depth ) ) + ( Left / ( 8 / Depth ) );
 					
-		ConvertFBTo565( Ptr, TempBuffer, ( Right - Left ) );
+		ConvertFBTo565( &Src[ Offset ], TempBuffer, ( Right - Left ) );
 	}
-
-	GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 2 );
-	C3D_SafeDisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE_TRANSFER_FLAGS );
 
 	End = osGetTime( );
 	Taken = ( End - Start );
@@ -506,7 +466,7 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	//printf( "FB took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	//printf( "FB took %dms, longest: %dms, d:%d\n", ( int ) Taken, ( int ) Longest, VideoGetBPP( ) );
 }
 
 void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, float ScaleX, float ScaleY ) {
@@ -2628,6 +2588,9 @@ LOCALPROC DrawMainScreen( void ) {
     if ( ScaleMode == ScaleMode_1to1 ) C3D_TexSetFilter( &FBTexture, GPU_NEAREST, GPU_NEAREST );
     else C3D_TexSetFilter( &FBTexture, GPU_LINEAR, GPU_LINEAR );
     
+    GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 2 );
+	C3D_SafeDisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE_TRANSFER_FLAGS );
+    
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
     DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
@@ -2685,53 +2648,12 @@ LOCALPROC Handle3FingerSalute( void ) {
 
 /* Toggle between absolute/relative mouse modes */
 LOCALPROC HandleMouseToggle( void ) {
-	u32 HeldMask = Keys_Held & ~( KEY_L | KEY_R | KEY_A );
-	u32 DownMask = Keys_Down & ~( KEY_L | KEY_R | KEY_A );
-
-    if (  ( Keys_Held & KEY_L ) && ( Keys_Held & KEY_R ) && ( Keys_Held & KEY_A ) ) {
+    if (  ( Keys_Held & KEY_L ) && ( Keys_Held & KEY_R ) && ( Keys_Down & KEY_A ) ) {
         if ( IsMouseAbsolute == falseblnr ) MacMsg( "Mouse mode changed", "Absolute mouse movement enabled", falseblnr );
         else MacMsg( "Mouse mode changed", "Relative mouse mode enabled", falseblnr );
         
         IsMouseAbsolute = ! IsMouseAbsolute;
     }
-}
-
-void DumpFBToDisk( void ) {
-	FILE* fb = NULL;
-	FILE* pal = NULL;
-	u8* Ptr = NULL;
-	int i = 0;
-	
-	fb = fopen( "fb.data", "wb+" );
-	Ptr = GetCurDrawBuff( );
-	
-	if ( fb ) {
-#if vMacScreenDepth == 2
-		for ( i = 0; i < vMacScreenNumBytes; i++ ) {
-			fputc( ( *Ptr >> 4 ) & 0x0F, fb );
-			fputc( *Ptr & 0x0F, fb );			
-			
-			Ptr++;
-		}
-#else
-		fwrite( GetCurDrawBuff( ), 1, vMacScreenNumBytes, fb );
-#endif
-		fclose( fb );
-	}
-
-#if vMacScreenDepth > 0	
-	pal = fopen( "pal.bin", "wb+" );
-
-	if ( pal ) {
-		for ( i = 0; i < CLUT_size; i++ ) {
-			fputc( CLUT_reds[ i ] >> 8, pal );
-			fputc( CLUT_greens[ i ] >> 8, pal );
-			fputc( CLUT_blues[ i ] >> 8, pal );
-		}
-		
-		fclose( pal );
-	}
-#endif	
 }
 
 LOCALPROC HandleTheEvent( void ) {
@@ -2820,6 +2742,15 @@ LOCALPROC MyMouseConstrain(void)
 
 LOCALFUNC blnr CreateMainWindow(void)
 {
+#if vMacScreenDepth != 0
+    ColorModeWorks = trueblnr;
+    
+    /* HACKHACKHACK:
+     * Make sure the framebuffer conversion table is built for the first run.
+     */
+    ColorMappingChanged = trueblnr;
+#endif
+
     return trueblnr;
 }
 
@@ -3119,10 +3050,6 @@ LOCALFUNC blnr InitOSGLU(void)
     DoN3DSSpeedup( );
     
     MSAtAppStart = osGetTime( );
-    
-#if vMacScreenDepth != 0
-    ColorModeWorks = trueblnr;
-#endif
 
     if ( Video_Init( ) )
     if ( Keyboard_Init( ) )
