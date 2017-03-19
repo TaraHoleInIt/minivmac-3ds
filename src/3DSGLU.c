@@ -409,10 +409,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	static int LastDepth = 1;
 	int Offset = 0;
 	int Depth = 0;
-	u32 Taken = 0;
-	u32 Start = 0;
-	u32 End = 0;
 	static u32 Longest = 0;
+	u32 Start, End, Taken = 0;
 	
 	Start = osGetTime( );
 	Depth = VideoGetBPP( );
@@ -425,21 +423,11 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 		// 4BPP: Align to a 2pixel boundary */
 		Left = ( Left & ~1 );
 		Right = ( Right + 1 ) & ~1;
-	}
-	
-#if vMacScreenDepth != 0
-	if ( ColorMappingChanged == trueblnr || Depth != LastDepth ) {
-		iprintf( "Depth changed to %d from %d\n", LastDepth, Depth );
-	
-		#if vMacScreenDepth == 2
-			MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
-		#elif vMacScreenDepth == 3
-			MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
-		#endif
 		
-		LastDepth = Depth;
+		MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+	} else if ( Depth == 8 ) {
+		MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
 	}
-#endif
 
 	if ( Left < 0 ) Left = 0;
 	if ( Left > vMacScreenWidth ) Left = vMacScreenWidth;
@@ -459,14 +447,14 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 					
 		ConvertFBTo565( &Src[ Offset ], TempBuffer, ( Right - Left ) );
 	}
-
+	
 	End = osGetTime( );
-	Taken = ( End - Start );
+	Taken = End - Start;
 	
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	//printf( "FB took %dms, longest: %dms, d:%d\n", ( int ) Taken, ( int ) Longest, VideoGetBPP( ) );
+	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, float ScaleX, float ScaleY ) {
@@ -973,6 +961,7 @@ LOCALFUNC tMacErr vSonyEject0(tDrive Drive_No, blnr deleteit)
 
 GLOBALFUNC tMacErr vSonyEject(tDrive Drive_No)
 {
+	printf( "%s\n", __FUNCTION__ );
 	return vSonyEject0(Drive_No, falseblnr);
 }
 
@@ -992,13 +981,16 @@ LOCALFUNC blnr Sony_Insert0(FILE *refnum, blnr locked,
 {
 	tDrive Drive_No;
 	blnr IsOk = falseblnr;
+	
+	printf( "%s: %s result: ", __FUNCTION__, drivepath );
 
 	if (! FirstFreeDisk(&Drive_No)) {
 		MacMsg(kStrTooManyImagesTitle, kStrTooManyImagesMessage,
 			falseblnr);
+		printf( "a\n" );
 	} else {
 		/* printf("Sony_Insert0 %d\n", (int)Drive_No); */
-
+		printf( "b\n" );
 		{
 			Drives[Drive_No] = refnum;
 			DiskInsertNotify(Drive_No, locked);
@@ -1009,7 +1001,10 @@ LOCALFUNC blnr Sony_Insert0(FILE *refnum, blnr locked,
 
 	if (! IsOk) {
 		fclose(refnum);
+		printf( "c\n" );
 	}
+	
+	printf( "%d\n", IsOk );
 
 	return IsOk;
 }
@@ -2748,7 +2743,7 @@ LOCALFUNC blnr CreateMainWindow(void)
     /* HACKHACKHACK:
      * Make sure the framebuffer conversion table is built for the first run.
      */
-    ColorMappingChanged = trueblnr;
+    //ColorMappingChanged = trueblnr;
 #endif
 
     return trueblnr;
