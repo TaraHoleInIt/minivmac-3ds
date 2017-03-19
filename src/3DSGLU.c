@@ -406,7 +406,6 @@ void ConvertFBTo565( u8* Src, u16* Dest, int Size ) {
 
 void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	u16* TempBuffer = ( u16* ) TempTextureBuffer;
-	static int LastDepth = 1;
 	int Offset = 0;
 	int Depth = 0;
 	static u32 Longest = 0;
@@ -423,11 +422,17 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 		// 4BPP: Align to a 2pixel boundary */
 		Left = ( Left & ~1 );
 		Right = ( Right + 1 ) & ~1;
-		
-		MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
-	} else if ( Depth == 8 ) {
-		MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
 	}
+
+#if vMacScreenDepth == 0
+	/* o_o */
+#elif vMacScreenDepth == 2
+	MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+#elif vMacScreenDepth == 3
+	MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+#else
+	#error Bit depth unsupported (yet/at all)
+#endif
 
 	if ( Left < 0 ) Left = 0;
 	if ( Left > vMacScreenWidth ) Left = vMacScreenWidth;
@@ -454,7 +459,7 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, float ScaleX, float ScaleY ) {
@@ -2739,11 +2744,6 @@ LOCALFUNC blnr CreateMainWindow(void)
 {
 #if vMacScreenDepth != 0
     ColorModeWorks = trueblnr;
-    
-    /* HACKHACKHACK:
-     * Make sure the framebuffer conversion table is built for the first run.
-     */
-    //ColorMappingChanged = trueblnr;
 #endif
 
     return trueblnr;
