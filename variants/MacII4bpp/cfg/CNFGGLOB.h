@@ -12,6 +12,12 @@
 
 #define MayInline inline __attribute__((always_inline))
 #define MayNotInline __attribute__((noinline))
+#define BigEndianUnaligned 0
+#define LittleEndianUnaligned 0
+#define my_cond_rare(x) (__builtin_expect(x, 0))
+#define Have_ASR 1
+#define HaveGlbReg 1
+#define my_align_8 __attribute__ ((aligned (8)))
 #define SmallGlobals 0
 #define cIncludeUnused 0
 #define UnusedParam(p) (void) p
@@ -58,6 +64,9 @@ typedef ui5b ui5r;
 
 typedef si5b si5r;
 #define si5beqr 1
+
+#define MySwapUi5r(x) ((ui5r)__builtin_bswap32(x))
+#define HaveMySwapUi5r 1
 
 typedef signed long long si6r;
 typedef signed long long si6b;

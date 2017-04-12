@@ -44,7 +44,9 @@ ICON        = icon.png
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
 CFLAGS	:=	-g -Wall -O2 -mword-relocations \
-			-fomit-frame-pointer \
+			-fno-strict-aliasing \
+			-fno-asynchronous-unwind-tables -Winline \
+			--param large-function-growth=1000 -fomit-frame-pointer \
 			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
@@ -165,7 +167,7 @@ all: $(OUTPUT) $(BUILD)
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile.MacII4bpp
 
 #---------------------------------------------------------------------------------
 clean:

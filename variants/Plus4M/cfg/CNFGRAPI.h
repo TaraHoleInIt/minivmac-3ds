@@ -26,7 +26,6 @@
 #define MayNotFullScreen 0
 #define WantInitMagnify 0
 #define EnableMagnify 0
-#define MyWindowScale 1
 #define UseColorImage 1
 #define WantInitRunInBackground 0
 #define WantInitNotAutoSlow 0

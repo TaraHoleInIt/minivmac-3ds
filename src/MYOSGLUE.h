@@ -158,7 +158,7 @@ EXPORTOSGLUFUNC tMacErr HTCEexport(tPbuf i);
 EXPORTOSGLUFUNC tMacErr HTCEimport(tPbuf *r);
 #endif
 
-EXPORTVAR(ui5b, OnTrueTime);
+EXPORTVAR(ui5b, OnTrueTime)
 
 EXPORTVAR(ui5b, CurMacDateInSeconds)
 EXPORTVAR(ui5b, CurMacLatitude)
@@ -194,8 +194,8 @@ EXPORTVAR(ui4r, CLUT_greens[CLUT_size])
 EXPORTVAR(ui4r, CLUT_blues[CLUT_size])
 #endif
 
-EXPORTVAR(blnr, EmVideoDisable);
-EXPORTVAR(si3b, EmLagTime);
+EXPORTVAR(blnr, EmVideoDisable)
+EXPORTVAR(si3b, EmLagTime)
 
 EXPORTOSGLUPROC Screen_OutputFrame(ui3p screencurrentbuff);
 EXPORTOSGLUPROC DoneWithDrawingForTick(void);
@@ -261,8 +261,8 @@ EXPORTVAR(ui4r, LT_TxBuffSz)
 
 EXPORTOSGLUPROC LT_TransmitPacket(void);
 
-EXPORTVAR(ui3p, LT_RxBuffer);
-EXPORTVAR(ui5r, LT_RxBuffSz);
+EXPORTVAR(ui3p, LT_RxBuffer)
+EXPORTVAR(ui5r, LT_RxBuffSz)
 
 EXPORTOSGLUPROC LT_ReceivePacket(void);
 

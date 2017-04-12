@@ -24,6 +24,11 @@
 #define WantCycByPriOp 0
 #define WantCloserCyc 0
 
+#define r_regs "r4"
+#define r_pc_p "r5"
+#define r_MaxCyclesToGo "r6"
+#define r_pc_pHi "r7"
+
 #define kRAMa_Size 0x00400000
 #define kRAMb_Size 0x00400000
 

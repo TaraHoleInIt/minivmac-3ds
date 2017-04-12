@@ -6800,7 +6800,12 @@ LOCALPROC DoCHK2orCMP2(void)
 			lower = get_word(DstAddr);
 			upper = get_word(DstAddr + 2);
 			break;
-		case 4:
+		default:
+#if ExtraAbnormalReports
+			if (4 != V_regs.CurDecOpY.v[0].ArgDat) {
+				ReportAbnormal("illegal opsize in CHK2 or CMP2");
+			}
+#endif
 			if ((extra & 0x8000) == 0) {
 				regv = ui5r_FromSLong(*srcp);
 			} else {
@@ -6808,9 +6813,6 @@ LOCALPROC DoCHK2orCMP2(void)
 			}
 			lower = get_long(DstAddr);
 			upper = get_long(DstAddr + 4);
-			break;
-		default:
-			ReportAbnormal("illegal opsize in CHK2 or CMP2");
 			break;
 	}
 
@@ -6842,13 +6844,18 @@ LOCALPROC DoCAS(void)
 
 	ReportAbnormal("CAS instruction");
 	switch (V_regs.CurDecOpY.v[0].ArgDat) {
-		case 1 :
+		case 1:
 			srcvalue = ui5r_FromSByte(V_regs.regs[rc]);
 			break;
-		case 2 :
+		case 2:
 			srcvalue = ui5r_FromSWord(V_regs.regs[rc]);
 			break;
-		case 4 :
+		default:
+#if ExtraAbnormalReports
+			if (4 != V_regs.CurDecOpY.v[0].ArgDat) {
+				ReportAbnormal("illegal opsize in DoCAS");
+			}
+#endif
 			srcvalue = ui5r_FromSLong(V_regs.regs[rc]);
 			break;
 	}

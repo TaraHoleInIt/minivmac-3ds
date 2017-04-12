@@ -519,11 +519,6 @@ LOCALVAR const trSoundSamp vol_offset[] = {
 #endif
 };
 
-LOCALVAR const ui4b SubTick_offset[kNumSubTicks] = {
-	0,    23,  46,  69,  92, 115, 138, 161,
-	185, 208, 231, 254, 277, 300, 323, 346
-};
-
 LOCALVAR const ui3r SubTick_n[kNumSubTicks] = {
 	23,  23,  23,  23,  23,  23,  23,  24,
 	23,  23,  23,  23,  23,  23,  23,  24
@@ -537,7 +532,9 @@ GLOBALPROC ASC_SubTick(int SubTick)
 #endif
 	ui4r i;
 	ui4r n = SubTick_n[SubTick];
+#if MySoundEnabled
 	ui3b SoundVolume = SoundReg_Volume;
+#endif
 
 #if MySoundEnabled
 label_retry:
@@ -548,7 +545,9 @@ label_retry:
 	if (actL > 0) {
 
 		if (1 == SoundReg801) {
+#if MySoundEnabled
 			ui3p addr;
+#endif
 
 			if (0 != (SoundReg802 & 2)) {
 
@@ -594,6 +593,7 @@ label_retry:
 				} else
 				{
 
+#if MySoundEnabled
 				addr = ASC_SampBuff + (ASC_FIFO_Out & 0x3FF);
 
 #if ASC_dolog && 1
@@ -608,13 +608,13 @@ label_retry:
 				dbglog_writeHex(addr[0x400]);
 				dbglog_writeReturn();
 #endif
-#if MySoundEnabled
+
 				*p++ = ((addr[0] + addr[0x400])
 #if 4 == kLn2SoundSampSz
 					<< 8
 #endif
 					) >> 1;
-#endif
+#endif /* MySoundEnabled */
 
 				ASC_FIFO_Out += 1;
 
@@ -647,6 +647,7 @@ label_retry:
 				} else
 				{
 
+#if MySoundEnabled
 				addr = ASC_SampBuff + (ASC_FIFO_Out & 0x3FF);
 
 #if ASC_dolog && 1
@@ -662,13 +663,12 @@ label_retry:
 				dbglog_writeReturn();
 #endif
 
-#if MySoundEnabled
 				*p++ = (addr[0])
 #if 4 == kLn2SoundSampSz
 					<< 8
 #endif
 					;
-#endif
+#endif /* MySoundEnabled */
 
 				/* Move the address on */
 				/* *addr = 0x80; */
@@ -680,11 +680,13 @@ label_retry:
 
 			}
 		} else if (2 == SoundReg801) {
+#if MySoundEnabled
 			ui4r v;
 			ui4r i0;
 			ui4r i1;
 			ui4r i2;
 			ui4r i3;
+#endif
 			ui5r freq0 = do_get_mem_long(ASC_ChanA[0].freq);
 			ui5r freq1 = do_get_mem_long(ASC_ChanA[1].freq);
 			ui5r freq2 = do_get_mem_long(ASC_ChanA[2].freq);
@@ -711,6 +713,8 @@ label_retry:
 				phase2 += freq2;
 				phase3 += freq3;
 
+#if MySoundEnabled
+
 #if 1
 				i0 = ((phase0 + 0x4000) >> 15) & 0x1FF;
 				i1 = ((phase1 + 0x4000) >> 15) & 0x1FF;
@@ -727,6 +731,7 @@ label_retry:
 					+ ASC_SampBuff[0x0200 + i1]
 					+ ASC_SampBuff[0x0400 + i2]
 					+ ASC_SampBuff[0x0600 + i3];
+
 #if ASC_dolog && 1
 				dbglog_StartLine();
 				dbglog_writeCStr("i0=");
@@ -742,9 +747,8 @@ label_retry:
 				dbglog_writeReturn();
 #endif
 
-#if MySoundEnabled
 				*p++ = (v >> 2);
-#endif
+#endif /* MySoundEnabled */
 			}
 
 			do_put_mem_long(ASC_ChanA[0].phase, phase0);

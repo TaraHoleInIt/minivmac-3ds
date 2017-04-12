@@ -177,10 +177,11 @@ LOCALFUNC int get_ethernet(void)
 		return falseblnr;
 	}
 
-	int namelen;
-	int addrlen;
-	namelen = ((struct sockaddr_dl*)sa_list[RTAX_IFP])->sdl_nlen;
-	addrlen = ((struct sockaddr_dl*)sa_list[RTAX_IFP])->sdl_alen;
+	int namelen = ((struct sockaddr_dl*)sa_list[RTAX_IFP])->sdl_nlen;
+#if 0
+	int addrlen = ((struct sockaddr_dl*)sa_list[RTAX_IFP])->sdl_alen;
+#endif
+
 	strncpy(device,
 		&((struct sockaddr_dl*)sa_list[RTAX_IFP])->sdl_data[0],
 		namelen);
@@ -302,6 +303,8 @@ GLOBALOSGLUPROC LT_TransmitPacket(void)
 
 	/* Send the packet to Ethernet */
 	count = write(fd, tx_buffer, 20 + LT_TxBuffSz);
+
+	(void)count; /* unused */
 }
 
 LOCALVAR unsigned char* NextPacket = NULL;
