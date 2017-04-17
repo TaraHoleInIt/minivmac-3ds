@@ -140,6 +140,7 @@ int LocProjectionUniforms = 0;
 
 C3D_Tex KeyboardTex;
 C3D_Tex FBTexture;
+C3D_Tex FontTex;
 
 C3D_Mtx ProjectionMain;
 C3D_Mtx ProjectionSub;
@@ -329,7 +330,7 @@ void Convert1BPP( u8* Src, u32* Dest, int Size ) {
     };
     u8 In = 0;
     
-    while ( Size-= 8 > 0 ) {
+    while ( Size-- ) {
         In = *Src++;
         
         *Dest++ = HNibble2Pixels[ ( In >> 6 ) & 0x03 ];
@@ -461,6 +462,66 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 		
 	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
+
+/* =======================================
+ * == Beginning of font support section ==
+ * =======================================
+ */
+
+#define FontTex_Width 256
+#define FontTex_Height 128
+#define Cell_Width 8
+#define Cell_Height 16
+
+/*
+ * Converts a vMac font cell to an 8x16 RGB565 image.
+ */
+LOCALPROC CellToRGB( int Cell, u16* Dest ) {
+	/* Each character cell is 8x16 at 1bpp, so the start of each character cell
+	 * in the CellData array can be found at cell * 16.
+	 */
+	Convert1BPP( ( u8* ) &CellData[ Cell * 16 ], ( u32* ) Dest, 16 );
+}
+
+/*
+ * Copies the given RGB565 8x16 cell into the destination
+ */
+LOCALPROC BlitCell( u16* Src, u16* Dest, int DestPitch ) {
+	int y = 0;
+	
+	for ( y = 0; y < Cell_Height; y++ ) {
+		memcpy( &Dest[ y * DestPitch ], &Src[ y * Cell_Width ], Cell_Width * sizeof( u16 ) );
+	}
+}
+
+/*
+ * Takes the 1BPP packed vMac font data and converts it to an
+ * RGB565 texture. Layout is unchanged from MacRoman.
+ */
+LOCALPROC CreateFontTexture( void ) {
+	static u16 FontSheetRGB[ 256 * 128 ];
+	static u16 CellRGB[ 8 * 16 ];
+	int Cell = 0;
+	int x = 0;
+	int y = 0;
+	
+	memset( FontSheetRGB, 0, sizeof( FontSheetRGB ) );
+	
+	for ( y = 0; y < FontTex_Height; y+= Cell_Height ) {
+		for ( x = 0; x < FontTex_Width; x+= Cell_Width ) {
+			if ( Cell >= kNumCells )
+				break;
+				
+			CellToRGB( Cell++, CellRGB );
+			BlitCell( CellRGB, &FontSheetRGB[ x + ( y * FontTex_Width ) ], 256 );
+		}
+	}
+}
+
+/* =================================
+ * == End of font support section ==
+ * =================================
+ */
 
 void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, float ScaleX, float ScaleY ) {
     float u = 1.0;
@@ -2613,10 +2674,10 @@ LOCALPROC DrawSubScreen( void ) {
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
     
 #ifdef DEBUG_CONSOLE
-    if ( Keys_Down & KEY_X )
+    if ( Keys_Down & KEY_B )
         DebugConsoleUpdate( );
     
-    if ( Keys_Held & KEY_X ) {
+    if ( Keys_Held & KEY_B ) {
         //printf( "\x1b[2J" );
         //printf( "Frames where not fast enough: %d\n", FramesTooSlow );
         //printf( "Frames where video was disabled: %d\n", FramesVideoDisabled );
@@ -2656,6 +2717,35 @@ LOCALPROC HandleMouseToggle( void ) {
     }
 }
 
+#if 0
+void DumpFont( void ) {
+	static u16 FontSheetRGB[ 256 * 128 ];
+	static u16 CellRGB[ 8 * 16 ];
+	FILE* fp = NULL;
+	int i = 0;
+	int x = 0;
+	int y = 0;
+	
+	memset( FontSheetRGB, RGB8_to_565( 255, 40, 255 ), sizeof( FontSheetRGB ) );
+	
+	if ( ( fp = fopen( "cells.data", "wb+" ) ) != NULL ) {
+		for ( y = 0; y < 128; y+= 16 ) {
+			for ( x = 0; x < 256; x+= 8 ) {
+				if ( i >= kNumCells )
+					break;
+				
+				CellToRGB( i++, CellRGB );
+				BlitCell( CellRGB, &FontSheetRGB[ x + ( y * 256 ) ], 256 );
+			}
+		}
+		
+		fwrite( FontSheetRGB, 1, sizeof( FontSheetRGB ), fp );
+		fclose( fp );
+		MacMsg( "Info", "Wrote cells to disk", falseblnr );
+	}
+}
+#endif
+
 LOCALPROC HandleTheEvent( void ) {
     if ( aptMainLoop( ) ) {
         hidScanInput( );
@@ -2684,7 +2774,6 @@ LOCALPROC HandleTheEvent( void ) {
         /* Pressing X should dismiss all emulator messages */
         if ( ( Keys_Down & KEY_X ) ) {
         	MacMsgDisplayOff( );
-        	//DumpFBToDisk( );
         }
         
         /* Handle the DPAD arrow keys regardless of if the keyboard is shown */
