@@ -39,11 +39,9 @@
 	((CurEmMd <= kEmMd_Classic) || (CurEmMd == kEmMd_II) \
 		|| (CurEmMd == kEmMd_IIx))
 
-#define UseLargeScreenHack \
-	(IncludeVidMem \
-	&& (CurEmMd != kEmMd_PB100) \
-	&& (CurEmMd != kEmMd_II) \
-	&& (CurEmMd != kEmMd_IIx))
+#ifndef UseLargeScreenHack
+#define UseLargeScreenHack 0
+#endif
 
 #if UseSonyPatch
 LOCALVAR const ui3b sony_driver[] = {

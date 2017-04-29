@@ -8318,7 +8318,11 @@ Label_Retry:
 			}
 		}
 		/* in trouble if get here */
+#if ExtraAbnormalReports
 		ReportAbnormal("Recalc_PC_Block fails");
+			/* happens on Restart */
+#endif
+
 		V_regs.pc_pLo = V_regs.fakeword;
 		V_pc_p = V_regs.pc_pLo;
 		V_pc_pHi = V_regs.pc_pLo + 2;

@@ -111,7 +111,7 @@ GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 #define TEXTURE_TRANSFER_FLAGS \
 (GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
-GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB565) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB565) | \
+GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB5A1) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB5A1) | \
 GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 #define TEXTURE32_TRANSFER_FLAGS \
@@ -199,6 +199,10 @@ void ModifyPNGIfWeHaveTo( png_structp PNGHandle, png_infop PNGInfo ) {
             png_set_gray_to_rgb( PNGHandle );
             break;
         }
+        case PNG_COLOR_TYPE_RGB_ALPHA: {
+        	png_set_swap_alpha( PNGHandle );
+        	break;
+        }
         case PNG_COLOR_TYPE_PALETTE: {
             png_set_expand( PNGHandle );
             break;
@@ -210,7 +214,10 @@ void ModifyPNGIfWeHaveTo( png_structp PNGHandle, png_infop PNGInfo ) {
             png_set_filler( PNGHandle, 0xFF, PNG_FILLER_BEFORE );
             break;
         }
-        default: break;
+        default: {
+        	printf( "%s: png_get_color_type unhandled: %d\n", __FUNCTION__, ( int ) png_get_color_type( PNGHandle, PNGInfo ) );
+        	break;
+        }
     };
     
     png_read_update_info( PNGHandle, PNGInfo );
@@ -309,6 +316,11 @@ rgba32* LoadPNG( const char* Path, int* OutWidth, int* OutHeight ) {
 
 static u16* TempTextureBuffer = NULL;
 
+void UI_UploadTexture32( void* ImageData, C3D_Tex* Texture, int Width, int Height ) {
+    GSPGPU_FlushDataCache( ImageData, Width * Height * sizeof( rgba32 ) );
+    C3D_SafeDisplayTransfer( ( u32* ) ImageData, GX_BUFFER_DIM( Width, Height ), ( u32* ) Texture->data, GX_BUFFER_DIM( Width, Height ), TEXTURE32_TRANSFER_FLAGS );
+}
+
 /* Hack, here for cleaner code later on */
 #if vMacScreenDepth == 0
 	blnr UseColorMode = falseblnr;
@@ -319,7 +331,7 @@ int VideoGetBPP( void ) {
 }
 
 /*
- * Converts a 1bpp packed image and outputs it in RGB565 format.
+ * Converts a 1bpp packed image and outputs it in RGB555A1 format.
  */
 void Convert1BPP( u8* Src, u32* Dest, int Size ) {
     const u32 HNibble2Pixels[ 4 ] = {
@@ -473,48 +485,26 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 #define Cell_Width 8
 #define Cell_Height 16
 
-/*
- * Converts a vMac font cell to an 8x16 RGB565 image.
- */
-LOCALPROC CellToRGB( int Cell, u16* Dest ) {
-	/* Each character cell is 8x16 at 1bpp, so the start of each character cell
-	 * in the CellData array can be found at cell * 16.
-	 */
-	Convert1BPP( ( u8* ) &CellData[ Cell * 16 ], ( u32* ) Dest, 16 );
-}
-
-/*
- * Copies the given RGB565 8x16 cell into the destination
- */
-LOCALPROC BlitCell( u16* Src, u16* Dest, int DestPitch ) {
-	int y = 0;
-	
-	for ( y = 0; y < Cell_Height; y++ ) {
-		memcpy( &Dest[ y * DestPitch ], &Src[ y * Cell_Width ], Cell_Width * sizeof( u16 ) );
-	}
-}
+LOCALVAR blnr HasFontLoaded = falseblnr;
 
 /*
  * Takes the 1BPP packed vMac font data and converts it to an
  * RGB565 texture. Layout is unchanged from MacRoman.
  */
-LOCALPROC CreateFontTexture( void ) {
-	static u16 FontSheetRGB[ 256 * 128 ];
-	static u16 CellRGB[ 8 * 16 ];
-	int Cell = 0;
-	int x = 0;
-	int y = 0;
+LOCALPROC LoadFontTexture( void ) {
+	rgba32* FontImage = NULL;
+	int Height = 0;
+	int Width = 0;
 	
-	memset( FontSheetRGB, 0, sizeof( FontSheetRGB ) );
-	
-	for ( y = 0; y < FontTex_Height; y+= Cell_Height ) {
-		for ( x = 0; x < FontTex_Width; x+= Cell_Width ) {
-			if ( Cell >= kNumCells )
-				break;
-				
-			CellToRGB( Cell++, CellRGB );
-			BlitCell( CellRGB, &FontSheetRGB[ x + ( y * FontTex_Width ) ], 256 );
+	if ( ( FontImage = LoadPNG( "gfx/ui_font.png", &Width, &Height ) ) != NULL ) {
+		if ( Width == FontTex_Width && Height == FontTex_Height ) {
+			UI_UploadTexture32( FontImage, &FontTex, Width, Height );
+			HasFontLoaded = trueblnr;
+		} else {
+			MacMsg( "Invalid resource", "Font size must be 256x128", falseblnr );
 		}
+	} else {
+		MacMsg( "Missing resource", "Missing ui_font.png in gfx folder", falseblnr );
 	}
 }
 
@@ -622,19 +612,16 @@ static int Video_SetupShader( void ) {
     return 0;
 }
 
-void UI_UploadTexture32( void* ImageData, C3D_Tex* Texture, int Width, int Height ) {
-    GSPGPU_FlushDataCache( ImageData, Width * Height * sizeof( rgba32 ) );
-    C3D_SafeDisplayTransfer( ( u32* ) ImageData, GX_BUFFER_DIM( Width, Height ), ( u32* ) Texture->data, GX_BUFFER_DIM( Width, Height ), TEXTURE32_TRANSFER_FLAGS );
-}
-
 static int Video_CreateTextures( void ) {
     C3D_TexEnv* Env = NULL;
     
     C3D_TexInit( &FBTexture, 512, 512, GPU_RGB565 );
     C3D_TexInit( &KeyboardTex, 512, 256, GPU_RGBA8 );
+    C3D_TexInit( &FontTex, FontTex_Width, FontTex_Height, GPU_RGBA8 );
     
     C3D_TexSetFilter( &FBTexture, GPU_NEAREST, GPU_NEAREST );
     C3D_TexSetFilter( &KeyboardTex, GPU_NEAREST, GPU_NEAREST );
+    C3D_TexSetFilter( &FontTex, GPU_NEAREST, GPU_NEAREST );
     
     Env = C3D_GetTexEnv( 0 );
     
@@ -643,6 +630,8 @@ static int Video_CreateTextures( void ) {
         C3D_TexEnvOp( Env, C3D_Both, 0, 0, 0 );
         C3D_TexEnvFunc( Env, C3D_Both, GPU_REPLACE );
     }
+    
+    LoadFontTexture( );
     
     return 1;
 }
@@ -810,7 +799,6 @@ int Video_Init( void ) {
     
     Video_SetupRenderTarget( );
     Video_SetupShader( );
-    Video_CreateTextures( );
     
     Mtx_OrthoTilt( &ProjectionMain, 0.0, 400.0, 240.0, 0.0, 0.0, 1.0, true );
     Mtx_OrthoTilt( &ProjectionSub, 0.0, 320.0, 240.0, 0.0, 0.0, 1.0, true );
@@ -822,6 +810,8 @@ int Video_Init( void ) {
 #ifdef DEBUG_CONSOLE
     DebugConsoleInit( );
 #endif
+
+    Video_CreateTextures( );
     
     return TempTextureBuffer ? 1 : 0;
 }
@@ -847,6 +837,8 @@ void Video_Close( void ) {
     
     C3D_TexDelete( &FBTexture );
     C3D_TexDelete( &KeyboardTex );
+    C3D_TexDelete( &FontTex );
+    
     C3D_Fini( );
     
     gfxExit( );
@@ -1047,16 +1039,12 @@ LOCALFUNC blnr Sony_Insert0(FILE *refnum, blnr locked,
 {
 	tDrive Drive_No;
 	blnr IsOk = falseblnr;
-	
-	printf( "%s: %s result: ", __FUNCTION__, drivepath );
 
 	if (! FirstFreeDisk(&Drive_No)) {
 		MacMsg(kStrTooManyImagesTitle, kStrTooManyImagesMessage,
 			falseblnr);
-		printf( "a\n" );
 	} else {
 		/* printf("Sony_Insert0 %d\n", (int)Drive_No); */
-		printf( "b\n" );
 		{
 			Drives[Drive_No] = refnum;
 			DiskInsertNotify(Drive_No, locked);
@@ -1067,10 +1055,7 @@ LOCALFUNC blnr Sony_Insert0(FILE *refnum, blnr locked,
 
 	if (! IsOk) {
 		fclose(refnum);
-		printf( "c\n" );
 	}
-	
-	printf( "%d\n", IsOk );
 
 	return IsOk;
 }
@@ -2673,6 +2658,9 @@ LOCALPROC DrawSubScreen( void ) {
     if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
     
+    if ( HasFontLoaded == trueblnr )
+    	DrawTexture( &FontTex, 256, 128, 0, 0, 1.0, 1.0 );
+    
 #ifdef DEBUG_CONSOLE
     if ( Keys_Down & KEY_B )
         DebugConsoleUpdate( );
@@ -2716,35 +2704,6 @@ LOCALPROC HandleMouseToggle( void ) {
         IsMouseAbsolute = ! IsMouseAbsolute;
     }
 }
-
-#if 0
-void DumpFont( void ) {
-	static u16 FontSheetRGB[ 256 * 128 ];
-	static u16 CellRGB[ 8 * 16 ];
-	FILE* fp = NULL;
-	int i = 0;
-	int x = 0;
-	int y = 0;
-	
-	memset( FontSheetRGB, RGB8_to_565( 255, 40, 255 ), sizeof( FontSheetRGB ) );
-	
-	if ( ( fp = fopen( "cells.data", "wb+" ) ) != NULL ) {
-		for ( y = 0; y < 128; y+= 16 ) {
-			for ( x = 0; x < 256; x+= 8 ) {
-				if ( i >= kNumCells )
-					break;
-				
-				CellToRGB( i++, CellRGB );
-				BlitCell( CellRGB, &FontSheetRGB[ x + ( y * 256 ) ], 256 );
-			}
-		}
-		
-		fwrite( FontSheetRGB, 1, sizeof( FontSheetRGB ), fp );
-		fclose( fp );
-		MacMsg( "Info", "Wrote cells to disk", falseblnr );
-	}
-}
-#endif
 
 LOCALPROC HandleTheEvent( void ) {
     if ( aptMainLoop( ) ) {

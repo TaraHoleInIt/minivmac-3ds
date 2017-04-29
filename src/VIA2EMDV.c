@@ -625,11 +625,17 @@ GLOBALPROC VIA2_ShiftInData(ui3b v)
 	*/
 	ui3b ShiftMode = (VIA2_D.ACR & 0x1C) >> 2;
 	if (ShiftMode != 3) {
+#if ExtraAbnormalReports
 		if (ShiftMode == 0) {
 			/* happens on reset */
 		} else {
 			ReportAbnormal("VIA Not ready to shift in");
+				/*
+					Observed (rarely) in Crystal Quest played
+					at 1x speed in "-t mc64".
+				*/
 		}
+#endif
 	} else {
 		VIA2_D.SR = v;
 		VIA2_SetInterruptFlag(kIntSR);
