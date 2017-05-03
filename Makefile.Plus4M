@@ -27,7 +27,7 @@ include $(DEVKITARM)/3ds_rules
 #     - icon.png
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
-MINIVMAC_VARIANT = MacII4bpp
+MINIVMAC_VARIANT = Plus4M
 
 TARGET		:=	$(notdir $(CURDIR))-$(MINIVMAC_VARIANT)
 BUILD		:=	build
