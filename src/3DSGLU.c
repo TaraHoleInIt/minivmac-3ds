@@ -475,6 +475,12 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
+struct Vertex {
+	float Position[ 3 ];
+	float Texcoords[ 2 ];
+	// float Color[ 4 ];
+};
+
 /* =======================================
  * == Beginning of font support section ==
  * =======================================
@@ -485,27 +491,186 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 #define Cell_Width 8
 #define Cell_Height 16
 
+#define Font_Max_Vertex 1024
+
+LOCALVAR struct Vertex* FontVertexList = NULL;
 LOCALVAR blnr HasFontLoaded = falseblnr;
 
+LOCALVAR float GlyphTexCoords[ 256 ][ 8 ];
+LOCALVAR int VertexCount = 0;
+
+LOCALVAR rgba32* FontSheetImage = NULL;
+
+LOCALFUNC int FontDrawChar( int X, int Y, int Glyph ) {
+	struct Vertex* Ptr = NULL;
+
+	if ( Glyph >= 0 && Glyph < 256 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
+		Ptr = &FontVertexList[ VertexCount ];
+		
+		/* Top left */
+		Ptr->Position[ 0 ] = ( float ) X;
+		Ptr->Position[ 1 ] = ( float ) Y;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		/* Bottom right */
+		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		/* Top right */
+		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr->Position[ 1 ] = ( float ) Y;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 4 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 5 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		/* Top left */
+		Ptr->Position[ 0 ] = ( float ) X;
+		Ptr->Position[ 1 ] = ( float ) Y;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		/* Bottom left */
+		Ptr->Position[ 0 ] = ( float ) X;
+		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 6 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 7 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		/* Bottom right */
+		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr->Position[ 2 ] = 0.1f;
+		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
+		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
+		
+		VertexCount++;
+		Ptr++;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+LOCALFUNC int FontDrawString( int X, int Y, const char* Str ) {
+	int Length = 0;
+	int i = 0;
+
+	for ( Length = strlen( Str ), i = 0; i < Length; i++ ) {
+		if ( FontDrawChar( X, Y, Str[ i ] ) ) X+= Cell_Width;
+		else break;
+	}
+	
+	return i;
+}
+
+LOCALFUNC int SetupFontVBuffer( void ) {
+	C3D_BufInfo* BufInfo = NULL;
+
+	FontVertexList = ( struct Vertex* ) linearAlloc( sizeof( struct Vertex ) * Font_Max_Vertex );
+	
+	if ( FontVertexList ) {
+		memset( FontVertexList, 0, sizeof( struct Vertex ) * Font_Max_Vertex );
+		
+		BufInfo = C3D_GetBufInfo( );
+		
+		if ( BufInfo ) {
+			BufInfo_Init( BufInfo );
+			BufInfo_Add( BufInfo, FontVertexList, sizeof( struct Vertex ), 2, 0x210 );
+			
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+LOCALPROC BuildGlyphCoords( void ) {
+	int Glyph = ' ';
+	int x = 0;
+	int y = 0;
+
+	memset( GlyphTexCoords, 0, sizeof( GlyphTexCoords ) );
+
+	for ( y = 0; y < FontTex_Height; y+= Cell_Height ) {
+		for ( x = 0; x < FontTex_Width; x+= Cell_Width ) {
+			/* Top left */
+			GlyphTexCoords[ Glyph ][ 0 ] = ( ( float ) x / ( float ) FontTex_Width );
+			GlyphTexCoords[ Glyph ][ 1 ] = ( ( float ) y / ( float ) FontTex_Height );
+			
+			/* Bottom right */
+			GlyphTexCoords[ Glyph ][ 2 ] = ( ( float ) ( x + Cell_Width ) / ( float ) FontTex_Width );
+			GlyphTexCoords[ Glyph ][ 3 ] = ( ( float ) ( y + Cell_Height ) / ( float ) FontTex_Height );
+			
+			/* Top right */
+			GlyphTexCoords[ Glyph ][ 4 ] = ( ( float ) ( x + Cell_Width ) / ( float ) FontTex_Width );
+			GlyphTexCoords[ Glyph ][ 5 ] = ( ( float ) y / ( float ) FontTex_Height );
+			
+			/* Bottom left */
+			GlyphTexCoords[ Glyph ][ 6 ] = ( ( float ) x / ( float ) FontTex_Width );
+			GlyphTexCoords[ Glyph++ ][ 7 ] = ( ( float ) ( y + Cell_Height ) / ( float ) FontTex_Height );
+		
+			/* Pls no overflow ;_; */
+			if ( Glyph >= 255 )
+				break;
+		}
+	}
+}
+
 /*
- * Takes the 1BPP packed vMac font data and converts it to an
- * RGB565 texture. Layout is unchanged from MacRoman.
+ * Loads the bitmap font sheet.
  */
-LOCALPROC LoadFontTexture( void ) {
-	rgba32* FontImage = NULL;
+LOCALPROC LoadFont( void ) {
 	int Height = 0;
 	int Width = 0;
 	
-	if ( ( FontImage = LoadPNG( "gfx/ui_font.png", &Width, &Height ) ) != NULL ) {
+	if ( ( FontSheetImage = LoadPNG( "gfx/ui_font.png", &Width, &Height ) ) != NULL ) {
 		if ( Width == FontTex_Width && Height == FontTex_Height ) {
-			UI_UploadTexture32( FontImage, &FontTex, Width, Height );
-			HasFontLoaded = trueblnr;
+			UI_UploadTexture32( FontSheetImage, &FontTex, Width, Height );
+			
+			if ( SetupFontVBuffer( ) ) {
+				HasFontLoaded = trueblnr;
+				BuildGlyphCoords( );
+				
+				FontDrawString( 25, 25, "fARts" );
+			}
 		} else {
 			MacMsg( "Invalid resource", "Font size must be 256x128", falseblnr );
 		}
 	} else {
 		MacMsg( "Missing resource", "Missing ui_font.png in gfx folder", falseblnr );
 	}
+}
+
+LOCALPROC FreeFont( void ) {
+	C3D_TexDelete( &FontTex );
+	
+	if ( FontSheetImage )
+		linearFree( FontSheetImage );
+	
+	if ( FontVertexList )
+		linearFree( FontVertexList );
 }
 
 /* =================================
@@ -631,7 +796,7 @@ static int Video_CreateTextures( void ) {
         C3D_TexEnvFunc( Env, C3D_Both, GPU_REPLACE );
     }
     
-    LoadFontTexture( );
+    LoadFont( );
     
     return 1;
 }
@@ -834,10 +999,11 @@ void Video_Close( void ) {
 #ifdef DEBUG_CONSOLE
     DebugConsoleFree( );
 #endif
+
+	FreeFont( );
     
     C3D_TexDelete( &FBTexture );
     C3D_TexDelete( &KeyboardTex );
-    C3D_TexDelete( &FontTex );
     
     C3D_Fini( );
     
@@ -2658,8 +2824,8 @@ LOCALPROC DrawSubScreen( void ) {
     if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
     
-    if ( HasFontLoaded == trueblnr )
-    	DrawTexture( &FontTex, 256, 128, 0, 0, 1.0, 1.0 );
+    C3D_TexBind( 0, &FontTex );
+    C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
     
 #ifdef DEBUG_CONSOLE
     if ( Keys_Down & KEY_B )
