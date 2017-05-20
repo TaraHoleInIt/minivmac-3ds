@@ -334,22 +334,33 @@ int VideoGetBPP( void ) {
  * Converts a 1bpp packed image and outputs it in RGB555A1 format.
  */
 void Convert1BPP( u8* Src, u32* Dest, int Size ) {
-    const u32 HNibble2Pixels[ 4 ] = {
-        0xFFFFFFFF, // 00
-        0x0000FFFF, // 01
-        0xFFFF0000, // 10
-        0x00000000  // 11
-    };
-    u8 In = 0;
-    
-    while ( Size-- ) {
-        In = *Src++;
-        
-        *Dest++ = HNibble2Pixels[ ( In >> 6 ) & 0x03 ];
-        *Dest++ = HNibble2Pixels[ ( In >> 4 ) & 0x03 ];
-        *Dest++ = HNibble2Pixels[ ( In >> 2 ) & 0x03 ];
-        *Dest++ = HNibble2Pixels[ In & 0x03 ];
-    }
+	while ( Size-- ) {
+		memcpy( Dest, FBConvTable[ *Src ], sizeof( u32 ) * 4 );
+		
+		Dest+= 4;
+		Src++;
+	}
+}
+
+/*
+ * Sets up the 1BPP->RGB565 conversion table.
+ */
+LOCALPROC MakeTable1BPP( void ) {
+	u16* Temp = NULL;
+	int i = 0;
+	
+	for ( i = 0; i < 256; i++ ) {	
+		Temp = ( u16* ) FBConvTable[ i ];
+		
+		Temp[ 0 ] = ( i & BIT( 7 ) ) ? 0 : 0xFFFF;
+		Temp[ 1 ] = ( i & BIT( 6 ) ) ? 0 : 0xFFFF;
+		Temp[ 2 ] = ( i & BIT( 5 ) ) ? 0 : 0xFFFF;
+		Temp[ 3 ] = ( i & BIT( 4 ) ) ? 0 : 0xFFFF;
+		Temp[ 4 ] = ( i & BIT( 3 ) ) ? 0 : 0xFFFF;
+		Temp[ 5 ] = ( i & BIT( 2 ) ) ? 0 : 0xFFFF;
+		Temp[ 6 ] = ( i & BIT( 1 ) ) ? 0 : 0xFFFF;
+		Temp[ 7 ] = ( i & BIT( 0 ) ) ? 0 : 0xFFFF;
+	}
 }
 
 /*
@@ -439,6 +450,7 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 
 #if vMacScreenDepth == 0
 	/* o_o */
+	MakeTable1BPP( );
 #elif vMacScreenDepth == 2
 	MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
 #elif vMacScreenDepth == 3
@@ -501,70 +513,19 @@ LOCALVAR int VertexCount = 0;
 
 LOCALVAR rgba32* FontSheetImage = NULL;
 
-LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, float R, float G, float B, float A ) {
-	struct Vertex* Ptr = NULL;
-	int i = 0;
-
-	if ( Glyph >= 0 && Glyph < 256 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
-		Ptr = &FontVertexList[ VertexCount ];
-		
-		/* Top left */
-		Ptr[ 0 ].Position[ 0 ] = ( float ) X;
-		Ptr[ 0 ].Position[ 1 ] = ( float ) Y;
-		Ptr[ 0 ].Position[ 2 ] = 0.5f;
-		Ptr[ 0 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
-		Ptr[ 0 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
-		
-		/* Bottom right */
-		Ptr[ 1 ].Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr[ 1 ].Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr[ 1 ].Position[ 2 ] = 0.5f;
-		Ptr[ 1 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
-		Ptr[ 1 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
-
-		/* Top right */
-		Ptr[ 2 ].Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr[ 2 ].Position[ 1 ] = ( float ) Y;
-		Ptr[ 2 ].Position[ 2 ] = 0.5f;
-		Ptr[ 2 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 4 ];
-		Ptr[ 2 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 5 ];
-		
-		/* Top left */
-		Ptr[ 3 ].Position[ 0 ] = ( float ) X;
-		Ptr[ 3 ].Position[ 1 ] = ( float ) Y;
-		Ptr[ 3 ].Position[ 2 ] = 0.5f;
-		Ptr[ 3 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
-		Ptr[ 3 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
-		
-		/* Bottom left */
-		Ptr[ 4 ].Position[ 0 ] = ( float ) X;
-		Ptr[ 4 ].Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr[ 4 ].Position[ 2 ] = 0.5f;
-		Ptr[ 4 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 6 ];
-		Ptr[ 4 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 7 ];
-		
-		/* Bottom right */
-		Ptr[ 5 ].Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr[ 5 ].Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr[ 5 ].Position[ 2 ] = 0.5f;
-		Ptr[ 5 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
-		Ptr[ 5 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
-		
-		for ( i = 0; i < 6; i++ ) {
-			Ptr[ i ].Color[ 0 ] = R;
-			Ptr[ i ].Color[ 1 ] = G;
-			Ptr[ i ].Color[ 2 ] = B;
-			Ptr[ i ].Color[ 3 ] = A;
-		}
-		
-		VertexCount+= 6;
-		return 1;
-	}
-	
-	return 0;
-}
-
-void SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, float v, float* Color ) {
+/*
+ * Just a little helper to make vertex setup a bit less messy looking.
+ *
+ * Params:
+ * Ptr		: Pointer to vertex
+ * X		: X Coordinate
+ * Y		: Y Coordinate
+ * Z		: Z Coordinate
+ * u		: Texcoord 0
+ * v		: Texcoord 1
+ * Color	: Pointer to an array of 4 floating point color values
+ */
+LOCALPROC SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, float v, float* Color ) {
 	Ptr->Position[ 0 ] = X;
 	Ptr->Position[ 1 ] = Y;
 	Ptr->Position[ 2 ] = Z;
@@ -573,6 +534,75 @@ void SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, float v,
 	Ptr->Texcoords[ 1 ] = v;
 
 	memcpy( Ptr->Color, Color, sizeof( float ) * 4 );
+}
+
+LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, float R, float G, float B, float A ) {
+	float Colors[ 4 ] = { R, G, B, A };
+	struct Vertex* Ptr = NULL;
+
+	if ( Glyph >= 0 && Glyph < 256 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
+		Ptr = &FontVertexList[ VertexCount ];
+		
+		/* Top left */
+		SetVertex( &Ptr[ 0 ],
+					( float ) X,
+					( float ) Y,
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 0 ],
+					GlyphTexCoords[ Glyph ][ 1 ],
+					Colors );
+		
+		/* Bottom right */
+		SetVertex( &Ptr[ 1 ],
+					( float ) ( X + Cell_Width ),
+					( float ) ( Y + Cell_Height ),
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 2 ],
+					GlyphTexCoords[ Glyph ][ 3 ],
+					Colors );
+
+		/* Top right */
+		SetVertex( &Ptr[ 2 ],
+					( float ) ( X + Cell_Width ),
+					( float ) Y,
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 4 ],
+					GlyphTexCoords[ Glyph ][ 5 ],
+					Colors );
+		
+		/* Top left */
+		SetVertex( &Ptr[ 3 ],
+					( float ) X,
+					( float ) Y,
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 0 ],
+					GlyphTexCoords[ Glyph ][ 1 ],
+					Colors );
+		
+		/* Bottom left */
+		SetVertex( &Ptr[ 4 ],
+					( float ) X,
+					( float ) ( Y + Cell_Height ),
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 6 ],
+					GlyphTexCoords[ Glyph ][ 7 ],
+					Colors );
+		
+		/* Bottom right */
+		SetVertex( &Ptr[ 5 ],
+					( float ) ( X + Cell_Width ),
+					( float ) ( Y + Cell_Height ),
+					0.5f,
+					GlyphTexCoords[ Glyph ][ 2 ],
+					GlyphTexCoords[ Glyph ][ 3 ],
+					Colors );
+		
+		VertexCount+= 6;
+		return 1;
+	}
+	
+	MacMsg( ( char* ) __FUNCTION__, "No space left in vertex buffer!", falseblnr );
+	return 0;
 }
 
 LOCALFUNC int FontDrawString( int X, int Y, const char* Str, float FGColor[ 4 ], float BGColor[ 4 ] ) {
@@ -1013,28 +1043,28 @@ void DebugConsoleDraw( void ) {
     // 1st triangle
     C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 1.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     
     // 2nd triangle
     C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     
     C3D_ImmSendAttrib( 0, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
-    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
+    C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     C3D_ImmDrawEnd( );
 }
 #endif
