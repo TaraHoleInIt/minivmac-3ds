@@ -111,7 +111,7 @@ GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 #define TEXTURE_TRANSFER_FLAGS \
 (GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
-GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB5A1) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB5A1) | \
+GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB565) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB565) | \
 GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 #define TEXTURE32_TRANSFER_FLAGS \
@@ -478,7 +478,7 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 struct Vertex {
 	float Position[ 3 ];
 	float Texcoords[ 2 ];
-	// float Color[ 4 ];
+	float Color[ 4 ];
 };
 
 /* =======================================
@@ -501,84 +501,148 @@ LOCALVAR int VertexCount = 0;
 
 LOCALVAR rgba32* FontSheetImage = NULL;
 
-LOCALFUNC int FontDrawChar( int X, int Y, int Glyph ) {
+LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, float R, float G, float B, float A ) {
 	struct Vertex* Ptr = NULL;
+	int i = 0;
 
 	if ( Glyph >= 0 && Glyph < 256 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
 		Ptr = &FontVertexList[ VertexCount ];
 		
 		/* Top left */
-		Ptr->Position[ 0 ] = ( float ) X;
-		Ptr->Position[ 1 ] = ( float ) Y;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
-		
-		VertexCount++;
-		Ptr++;
+		Ptr[ 0 ].Position[ 0 ] = ( float ) X;
+		Ptr[ 0 ].Position[ 1 ] = ( float ) Y;
+		Ptr[ 0 ].Position[ 2 ] = 0.5f;
+		Ptr[ 0 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
+		Ptr[ 0 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
 		
 		/* Bottom right */
-		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
-		
-		VertexCount++;
-		Ptr++;
-		
+		Ptr[ 1 ].Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr[ 1 ].Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr[ 1 ].Position[ 2 ] = 0.5f;
+		Ptr[ 1 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
+		Ptr[ 1 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
+
 		/* Top right */
-		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr->Position[ 1 ] = ( float ) Y;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 4 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 5 ];
-		
-		VertexCount++;
-		Ptr++;
+		Ptr[ 2 ].Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr[ 2 ].Position[ 1 ] = ( float ) Y;
+		Ptr[ 2 ].Position[ 2 ] = 0.5f;
+		Ptr[ 2 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 4 ];
+		Ptr[ 2 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 5 ];
 		
 		/* Top left */
-		Ptr->Position[ 0 ] = ( float ) X;
-		Ptr->Position[ 1 ] = ( float ) Y;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
-		
-		VertexCount++;
-		Ptr++;
+		Ptr[ 3 ].Position[ 0 ] = ( float ) X;
+		Ptr[ 3 ].Position[ 1 ] = ( float ) Y;
+		Ptr[ 3 ].Position[ 2 ] = 0.5f;
+		Ptr[ 3 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 0 ];
+		Ptr[ 3 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 1 ];
 		
 		/* Bottom left */
-		Ptr->Position[ 0 ] = ( float ) X;
-		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 6 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 7 ];
-		
-		VertexCount++;
-		Ptr++;
+		Ptr[ 4 ].Position[ 0 ] = ( float ) X;
+		Ptr[ 4 ].Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr[ 4 ].Position[ 2 ] = 0.5f;
+		Ptr[ 4 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 6 ];
+		Ptr[ 4 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 7 ];
 		
 		/* Bottom right */
-		Ptr->Position[ 0 ] = ( float ) X + Cell_Width;
-		Ptr->Position[ 1 ] = ( float ) Y + Cell_Height;
-		Ptr->Position[ 2 ] = 0.1f;
-		Ptr->Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
-		Ptr->Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
+		Ptr[ 5 ].Position[ 0 ] = ( float ) X + Cell_Width;
+		Ptr[ 5 ].Position[ 1 ] = ( float ) Y + Cell_Height;
+		Ptr[ 5 ].Position[ 2 ] = 0.5f;
+		Ptr[ 5 ].Texcoords[ 0 ] = GlyphTexCoords[ Glyph ][ 2 ];
+		Ptr[ 5 ].Texcoords[ 1 ] = GlyphTexCoords[ Glyph ][ 3 ];
 		
-		VertexCount++;
-		Ptr++;
+		for ( i = 0; i < 6; i++ ) {
+			Ptr[ i ].Color[ 0 ] = R;
+			Ptr[ i ].Color[ 1 ] = G;
+			Ptr[ i ].Color[ 2 ] = B;
+			Ptr[ i ].Color[ 3 ] = A;
+		}
 		
+		VertexCount+= 6;
 		return 1;
 	}
 	
 	return 0;
 }
 
-LOCALFUNC int FontDrawString( int X, int Y, const char* Str ) {
+void SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, float v, float* Color ) {
+	Ptr->Position[ 0 ] = X;
+	Ptr->Position[ 1 ] = Y;
+	Ptr->Position[ 2 ] = Z;
+
+	Ptr->Texcoords[ 0 ] = u;
+	Ptr->Texcoords[ 1 ] = v;
+
+	memcpy( Ptr->Color, Color, sizeof( float ) * 4 );
+}
+
+LOCALFUNC int FontDrawString( int X, int Y, const char* Str, float FGColor[ 4 ], float BGColor[ 4 ] ) {
+	struct Vertex* Ptr = &FontVertexList[ VertexCount ];
 	int Length = 0;
 	int i = 0;
+	
+	Length = strlen( Str );
 
+	/* Draw background color as 2 triangles with the texture being the full block glyph. */
+	if ( Length > 0 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
+		/* Top left */
+		SetVertex( &Ptr[ 0 ],
+					( float ) X,
+					( float ) Y,
+					0.6f,
+					GlyphTexCoords[ 0 ][ 0 ],
+					GlyphTexCoords[ 0 ][ 1 ],
+					BGColor );
+	
+		/* Bottom right */
+		SetVertex( &Ptr[ 1 ],
+					( float ) ( X + ( Length * Cell_Width ) ),
+					( float ) ( Y + Cell_Height ),
+					0.6f,
+					GlyphTexCoords[ 0 ][ 2 ],
+					GlyphTexCoords[ 0 ][ 3 ],
+					BGColor );
+	
+		/* Top right */
+		SetVertex( &Ptr[ 2 ],
+					( float ) ( X + ( Length * Cell_Width ) ),
+					( float ) Y,
+					0.6f,
+					GlyphTexCoords[ 0 ][ 4 ],
+					GlyphTexCoords[ 0 ][ 5 ],
+					BGColor );
+		
+		/* Top left */
+		SetVertex( &Ptr[ 3 ],
+					( float ) X,
+					( float ) Y,
+					0.6f,
+					GlyphTexCoords[ 0 ][ 0 ],
+					GlyphTexCoords[ 0 ][ 1 ],
+					BGColor );		
+	
+		/* Bottom left */
+		SetVertex( &Ptr[ 4 ],
+					( float ) X,
+					( float ) ( Y + Cell_Height ),
+					0.6f,
+					GlyphTexCoords[ 0 ][ 6 ],
+					GlyphTexCoords[ 0 ][ 7 ],
+					BGColor );
+			
+		/* Bottom right */
+		SetVertex( &Ptr[ 5 ],
+					( float ) ( X + ( Length * Cell_Width ) ),
+					( float ) ( Y + Cell_Height ),
+					0.6f,
+					GlyphTexCoords[ 0 ][ 2 ],
+					GlyphTexCoords[ 0 ][ 3 ],
+					BGColor );	
+		
+		VertexCount+= 6;
+	}
+	
 	for ( Length = strlen( Str ), i = 0; i < Length; i++ ) {
-		if ( FontDrawChar( X, Y, Str[ i ] ) ) X+= Cell_Width;
+		if ( FontDrawChar( X, Y, Str[ i ], FGColor[ 0 ], FGColor[ 1 ], FGColor[ 2 ], FGColor[ 3 ] ) ) X+= Cell_Width;
 		else break;
 	}
 	
@@ -597,7 +661,7 @@ LOCALFUNC int SetupFontVBuffer( void ) {
 		
 		if ( BufInfo ) {
 			BufInfo_Init( BufInfo );
-			BufInfo_Add( BufInfo, FontVertexList, sizeof( struct Vertex ), 2, 0x210 );
+			BufInfo_Add( BufInfo, FontVertexList, sizeof( struct Vertex ), 3, 0x210 );
 			
 			return 1;
 		}
@@ -607,14 +671,18 @@ LOCALFUNC int SetupFontVBuffer( void ) {
 }
 
 LOCALPROC BuildGlyphCoords( void ) {
-	int Glyph = ' ';
+	int Glyph = 0;
 	int x = 0;
 	int y = 0;
 
 	memset( GlyphTexCoords, 0, sizeof( GlyphTexCoords ) );
 
 	for ( y = 0; y < FontTex_Height; y+= Cell_Height ) {
-		for ( x = 0; x < FontTex_Width; x+= Cell_Width ) {
+		for ( x = 0; x < FontTex_Width; x+= Cell_Width, Glyph++ ) {
+			/* Pls no overflow ;_; */
+			if ( Glyph > 255 )
+				break;		
+		
 			/* Top left */
 			GlyphTexCoords[ Glyph ][ 0 ] = ( ( float ) x / ( float ) FontTex_Width );
 			GlyphTexCoords[ Glyph ][ 1 ] = ( ( float ) y / ( float ) FontTex_Height );
@@ -629,11 +697,7 @@ LOCALPROC BuildGlyphCoords( void ) {
 			
 			/* Bottom left */
 			GlyphTexCoords[ Glyph ][ 6 ] = ( ( float ) x / ( float ) FontTex_Width );
-			GlyphTexCoords[ Glyph++ ][ 7 ] = ( ( float ) ( y + Cell_Height ) / ( float ) FontTex_Height );
-		
-			/* Pls no overflow ;_; */
-			if ( Glyph >= 255 )
-				break;
+			GlyphTexCoords[ Glyph ][ 7 ] = ( ( float ) ( y + Cell_Height ) / ( float ) FontTex_Height );
 		}
 	}
 }
@@ -642,6 +706,8 @@ LOCALPROC BuildGlyphCoords( void ) {
  * Loads the bitmap font sheet.
  */
 LOCALPROC LoadFont( void ) {
+	float fg[ 4 ] = { 0.0f, 1.0f, 1.0f, 1.0f };
+	float bg[ 4 ] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	int Height = 0;
 	int Width = 0;
 	
@@ -653,7 +719,7 @@ LOCALPROC LoadFont( void ) {
 				HasFontLoaded = trueblnr;
 				BuildGlyphCoords( );
 				
-				FontDrawString( 25, 25, "fARts" );
+				FontDrawString( 25, 25, "Tara has bad gas. o_o", fg, bg );
 			}
 		} else {
 			MacMsg( "Invalid resource", "Font size must be 256x128", falseblnr );
@@ -691,22 +757,28 @@ void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, flo
     // 1st triangle
         C3D_ImmSendAttrib( X, Y, 1.0, 0.0 );
         C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
         
         C3D_ImmSendAttrib( X + Width, Y + Height, 1.0, 0.0 );
         C3D_ImmSendAttrib( u, v, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
         
         C3D_ImmSendAttrib( X + Width, Y, 1.0, 0.0 );
         C3D_ImmSendAttrib( u, 0.0, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
         
         // 2nd triangle
         C3D_ImmSendAttrib( X, Y, 1.0, 0.0 );
         C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
         
         C3D_ImmSendAttrib( X, Y + Height, 1.0, 0.0 );
         C3D_ImmSendAttrib( 0.0, v, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
         
         C3D_ImmSendAttrib( X + Width, Y + Height, 1.0, 0.0 );
         C3D_ImmSendAttrib( u, v, 0.0, 0.0 );
+        C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 1.0 );
     C3D_ImmDrawEnd( );
 }
 
@@ -715,7 +787,7 @@ static int Video_SetupRenderTarget( void ) {
     SubRenderTarget = C3D_RenderTargetCreate( 240, 320, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8 );
     
     if ( MainRenderTarget && SubRenderTarget ) {
-        C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0xFF, 0 );
+        C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0x00FF00FF, 0 );
         C3D_RenderTargetSetOutput( MainRenderTarget, GFX_TOP, GFX_LEFT, DISPLAY_TRANSFER_FLAGS );
         
         C3D_RenderTargetSetClear( SubRenderTarget, C3D_CLEAR_ALL, 0x0000FFFF, 0 );
@@ -728,25 +800,25 @@ static int Video_SetupRenderTarget( void ) {
 }
 
 LOCALVAR const unsigned char vshader_shbin[ ] = {
-    0x44, 0x56, 0x4c, 0x42, 0x01, 0x00, 0x00, 0x00, 0x8c, 0x00, 0x00, 0x00, 0x44, 0x56, 0x4c, 0x50,
-    0x00, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x48, 0x00, 0x00, 0x00,
-    0x07, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4e, 0x01, 0xf0, 0x07, 0x4e, 0x02, 0x08, 0x02, 0x08,
-    0x03, 0x18, 0x02, 0x08, 0x04, 0x28, 0x02, 0x08, 0x05, 0x38, 0x02, 0x08, 0x06, 0x10, 0x20, 0x4c,
-    0x00, 0x00, 0x00, 0x88, 0x6e, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xa1, 0x0a, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x68, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0xc3, 0x06, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x62, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x61, 0xc3, 0x06, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x6f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x56, 0x4c, 0x45,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x78, 0x00, 0x00, 0x00,
-    0x02, 0x00, 0x00, 0x00, 0x88, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x02, 0x00, 0x5f, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3f, 0x00, 0x00, 0x00, 0xbf, 0x00, 0x99, 0x99, 0x3b, 0x00,
-    0x02, 0x00, 0x5e, 0x00, 0x33, 0x33, 0x3d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00,
-    0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x13, 0x00, 0x0b, 0x00, 0x00, 0x00,
-    0x78, 0x00, 0x78, 0x00, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x00, 0x74,
-    0x65, 0x73, 0x74, 0x00
+	0x44, 0x56, 0x4c, 0x42, 0x01, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0x44, 0x56, 0x4c, 0x50, 
+	0x00, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x00, 0x00, 
+	0x07, 0x00, 0x00, 0x00, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4e, 0x01, 0xf0, 0x07, 0x4e, 0x02, 0x08, 0x02, 0x08, 
+	0x03, 0x18, 0x02, 0x08, 0x04, 0x28, 0x02, 0x08, 0x05, 0x38, 0x02, 0x08, 0x06, 0x10, 0x20, 0x4c, 
+	0x06, 0x20, 0x40, 0x4c, 0x00, 0x00, 0x00, 0x88, 0x6e, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0xa1, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x68, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x64, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x62, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x61, 0xc3, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x44, 0x56, 0x4c, 0x45, 0x02, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 
+	0x68, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 
+	0x80, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 
+	0x02, 0x00, 0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3f, 0x00, 0x00, 0x00, 0xbf, 0x00, 
+	0x99, 0x99, 0x3b, 0x00, 0x02, 0x00, 0x5e, 0x00, 0x33, 0x33, 0x3d, 0x00, 0x00, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 
+	0x03, 0x00, 0x01, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x0f, 0x00, 0x00, 0x00, 
+	0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x13, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x78, 0x00, 0x78, 0x00, 
+	0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x00, 0x74, 0x65, 0x73, 0x74, 0x00
 };
 
 static int Video_SetupShader( void ) {
@@ -767,7 +839,7 @@ static int Video_SetupShader( void ) {
             AttrInfo_Init( Info );
             AttrInfo_AddLoader( Info, 0, GPU_FLOAT, 3 );
             AttrInfo_AddLoader( Info, 1, GPU_FLOAT, 2 );
-            //AttrInfo_AddLoader( Info, 2, GPU_FLOAT, 4 );
+            AttrInfo_AddLoader( Info, 2, GPU_FLOAT, 4 );
             
             //BufInfo_Init( C3D_GetBufInfo( ) );
             return 1;
@@ -791,9 +863,15 @@ static int Video_CreateTextures( void ) {
     Env = C3D_GetTexEnv( 0 );
     
     if ( Env ) {
-        C3D_TexEnvSrc( Env, C3D_Both, GPU_TEXTURE0, 0, 0 );
-        C3D_TexEnvOp( Env, C3D_Both, 0, 0, 0 );
-        C3D_TexEnvFunc( Env, C3D_Both, GPU_REPLACE );
+        //C3D_TexEnvSrc( Env, C3D_Both, GPU_TEXTURE0, 0, 0 );
+        //C3D_TexEnvOp( Env, C3D_Both, 0, 0, 0 );
+        //C3D_TexEnvFunc( Env, C3D_Both, GPU_REPLACE );
+        
+		C3D_TexEnvSrc( Env, C3D_RGB, GPU_PRIMARY_COLOR, GPU_TEXTURE0, GPU_TEXTURE0 );
+		C3D_TexEnvSrc( Env, C3D_Alpha, GPU_TEXTURE0, GPU_PRIMARY_COLOR, 0 );
+		C3D_TexEnvOp( Env, C3D_Both, 0, 0, 0 );
+		C3D_TexEnvFunc( Env, C3D_RGB, GPU_ADD );
+		C3D_TexEnvFunc( Env, C3D_Alpha, GPU_MODULATE );
     }
     
     LoadFont( );
@@ -935,22 +1013,28 @@ void DebugConsoleDraw( void ) {
     // 1st triangle
     C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 1.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     
     // 2nd triangle
     C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     
     C3D_ImmSendAttrib( 0, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     
     C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
+    C3D_ImmSendAttrib( 1.0, 1.0, 1.0, 1.0 );
     C3D_ImmDrawEnd( );
 }
 #endif
@@ -2823,7 +2907,7 @@ LOCALPROC DrawSubScreen( void ) {
     
     if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
-    
+
     C3D_TexBind( 0, &FontTex );
     C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
     
