@@ -2686,49 +2686,31 @@ LOCALVAR blnr CaughtMouse = falseblnr;
 #define MouseMaxDelta 10
 #define MouseMinDelta -10
 #define CPadMaxDelta 3
-#define CPadMinDelta -3
+#define CPadAcceleration 1.5f
 
-LOCALVAR blnr IsMouseAbsolute = falseblnr;
-
-/*
- * TODO:
- * Read using analogue stick values.
- */
 LOCALFUNC blnr GetCPadDelta( int* DeltaX, int* DeltaY ) {
-    if ( Keys_Held & KEY_CPAD_LEFT ) *DeltaX = CPadMinDelta;
-    if ( Keys_Held & KEY_CPAD_RIGHT ) *DeltaX = CPadMaxDelta;
-    
-    if ( Keys_Held & KEY_CPAD_UP ) *DeltaY = CPadMinDelta;
-    if ( Keys_Held & KEY_CPAD_DOWN ) *DeltaY = CPadMaxDelta;
-    
-    return ( *DeltaX != 0 ) || ( *DeltaY != 0 ) ? trueblnr : falseblnr;
-}
-
-LOCALFUNC blnr GetTouchDelta( int* DeltaX, int* DeltaY ) {
-    static touchPosition LastTP = {
-        0,
-        0
-    };
-    touchPosition TP;
-    
-    if ( Keys_Held & KEY_TOUCH ) {
-        touchRead( &TP );
-    
-        *DeltaX = ( TP.px - LastTP.px );
-        *DeltaY = ( TP.py - LastTP.py );
-    
-        LastTP = TP;
-        
-        return trueblnr;
-    } else {
-        *DeltaX = 0;
-        *DeltaY = 0;
-        
-        LastTP.px = 0;
-        LastTP.py = 0;
-    }
-    
-    return falseblnr;
+	circlePosition CPadPos;
+	float fdx = 0.0f;
+	float fdy = 0.0f;
+	
+	hidCircleRead( &CPadPos );
+	
+	if ( CPadPos.dx > 50 || CPadPos.dx < -50 )
+		fdx = ( ( float ) CPadPos.dx ) / 50.0f;
+		
+	if ( CPadPos.dy > 50 || CPadPos.dy < -50 )
+		fdy = ( ( float ) CPadPos.dy ) / 50.0f;
+	
+	*DeltaX = ( int ) ( fdx * CPadAcceleration );
+	*DeltaY = ( int ) -( fdy * CPadAcceleration );
+	
+	if ( *DeltaX < -CPadMaxDelta ) *DeltaX = -CPadMaxDelta;
+	else if ( *DeltaX > CPadMaxDelta ) *DeltaX = CPadMaxDelta;
+	
+	if ( *DeltaY < -CPadMaxDelta ) *DeltaY = -CPadMaxDelta;
+	else if ( *DeltaY > CPadMaxDelta ) *DeltaY = CPadMaxDelta;
+	
+	return ( *DeltaX != 0 ) || ( *DeltaY != 0 ) ? trueblnr : falseblnr;
 }
 
 LOCALFUNC blnr GetTouchAbsolute( int* ABSX, int* ABSY ) {
@@ -2771,13 +2753,8 @@ LOCALPROC HandleMouseMovement( void ) {
         HaveMouseMotion = GetCPadDelta( &X, &Y );
         IsDelta = trueblnr;
     } else {
-        if( IsMouseAbsolute == trueblnr ) {
-            HaveMouseMotion = GetTouchAbsolute( &X, &Y );
-            IsDelta = falseblnr;
-        } else {
-            HaveMouseMotion = GetTouchDelta( &X, &Y );
-            IsDelta = trueblnr;
-        }
+    	HaveMouseMotion = GetTouchAbsolute( &X, &Y );
+        IsDelta = falseblnr;
         
         /* If no touchscreen activity, try the circle pad */
         if ( HaveMouseMotion == falseblnr ) {
@@ -2942,14 +2919,8 @@ LOCALPROC DrawSubScreen( void ) {
     C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
     
 #ifdef DEBUG_CONSOLE
-    if ( Keys_Down & KEY_B )
-        DebugConsoleUpdate( );
-    
-    if ( Keys_Held & KEY_B ) {
-        //printf( "\x1b[2J" );
-        //printf( "Frames where not fast enough: %d\n", FramesTooSlow );
-        //printf( "Frames where video was disabled: %d\n", FramesVideoDisabled );
-        
+    if ( Keys_Held & KEY_X ) {
+    	DebugConsoleUpdate( );
         DebugConsoleDraw( );
     }
 #endif
@@ -2971,18 +2942,6 @@ LOCALPROC HandleControlMode( void ) {
 LOCALPROC Handle3FingerSalute( void ) {
     if ( ( Keys_Held & KEY_L ) && ( Keys_Held & KEY_R ) && ( Keys_Held & KEY_START ) )
    		ForceMacOff = trueblnr;
-    	
-    //    RequestMacOff = trueblnr;
-}
-
-/* Toggle between absolute/relative mouse modes */
-LOCALPROC HandleMouseToggle( void ) {
-    if (  ( Keys_Held & KEY_L ) && ( Keys_Held & KEY_R ) && ( Keys_Down & KEY_A ) ) {
-        if ( IsMouseAbsolute == falseblnr ) MacMsg( "Mouse mode changed", "Absolute mouse movement enabled", falseblnr );
-        else MacMsg( "Mouse mode changed", "Relative mouse mode enabled", falseblnr );
-        
-        IsMouseAbsolute = ! IsMouseAbsolute;
-    }
 }
 
 LOCALPROC HandleTheEvent( void ) {
@@ -2998,7 +2957,6 @@ LOCALPROC HandleTheEvent( void ) {
         
         Handle3FingerSalute( );
         HandleControlMode( );
-        HandleMouseToggle( );
         
         if ( KeyboardIsActive )
             Keyboard_Update( );
