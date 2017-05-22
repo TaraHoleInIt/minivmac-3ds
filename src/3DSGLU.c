@@ -32,9 +32,11 @@
  */
 #define DEBUG_CONSOLE
 
-u32 Keys_Down = 0;
-u32 Keys_Up = 0;
-u32 Keys_Held = 0;
+LOCALVAR u32 Keys_Down = 0;
+LOCALVAR u32 Keys_Up = 0;
+LOCALVAR u32 Keys_Held = 0;
+
+LOCALVAR blnr IsNew3DS = falseblnr;
 
 /* --- control mode and internationalization --- */
 
@@ -2688,12 +2690,15 @@ LOCALVAR blnr CaughtMouse = falseblnr;
 #define CPadMaxDelta 3
 #define CPadAcceleration 1.5f
 
-LOCALFUNC blnr GetCPadDelta( int* DeltaX, int* DeltaY ) {
+LOCALFUNC blnr GetCPadDelta( int* DeltaX, int* DeltaY, blnr UseCPadPro ) {
 	circlePosition CPadPos;
 	float fdx = 0.0f;
 	float fdy = 0.0f;
 	
-	hidCircleRead( &CPadPos );
+	if ( UseCPadPro == trueblnr )
+		irrstCstickRead( &CPadPos );
+	else
+		hidCircleRead( &CPadPos );
 	
 	if ( CPadPos.dx > 50 || CPadPos.dx < -50 )
 		fdx = ( ( float ) CPadPos.dx ) / 50.0f;
@@ -2750,16 +2755,23 @@ LOCALPROC HandleMouseMovement( void ) {
     
     if ( KeyboardIsActive == trueblnr ) {
         /* Keyboard is active, only accept mouse input from the CPad */
-        HaveMouseMotion = GetCPadDelta( &X, &Y );
+        HaveMouseMotion = GetCPadDelta( &X, &Y, falseblnr );
         IsDelta = trueblnr;
+        
+        /* If no motion from the CirclePad, check the CirclePadPro */
+        if ( HaveMouseMotion == falseblnr )
+        	HaveMouseMotion = GetCPadDelta( &X, &Y, trueblnr );
     } else {
     	HaveMouseMotion = GetTouchAbsolute( &X, &Y );
         IsDelta = falseblnr;
         
         /* If no touchscreen activity, try the circle pad */
         if ( HaveMouseMotion == falseblnr ) {
-            HaveMouseMotion = GetCPadDelta( &X, &Y );
+            HaveMouseMotion = GetCPadDelta( &X, &Y, falseblnr );
             IsDelta = trueblnr;
+            
+            if ( HaveMouseMotion == falseblnr )
+            	HaveMouseMotion = GetCPadDelta( &X, &Y, trueblnr );
         }
     }
     
@@ -3317,18 +3329,21 @@ LOCALPROC UnallocMyMemory(void)
 }
 
 LOCALPROC DoN3DSSpeedup( void ) {
-    bool IsNew3DS = 0;
+	bool Result = false;
+
+    APT_CheckNew3DS( &Result );
     
-    APT_CheckNew3DS( &IsNew3DS );
-    
-    if ( IsNew3DS )
+    if ( Result ) {
+    	printf( "n3ds clock boost enabled\n" );
         osSetSpeedupEnable( true );
+    }
+    
+    IsNew3DS = ( blnr ) Result;
 }
 
 LOCALFUNC blnr InitOSGLU(void)
 {
     chdir( "sdmc:/3ds/vmac/" );
-    DoN3DSSpeedup( );
     
     MSAtAppStart = osGetTime( );
 
@@ -3349,6 +3364,7 @@ LOCALFUNC blnr InitOSGLU(void)
 	if (Screen_Init())
 	if (CreateMainWindow())
 	{
+		DoN3DSSpeedup( );
 		return trueblnr;
 	}
     printf( "B\n" );
