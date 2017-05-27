@@ -30,7 +30,7 @@
 /* Uncomment to use debug console as a texture.
  * Press and hold X to see it.
  */
-#define DEBUG_CONSOLE
+//#define DEBUG_CONSOLE
 
 LOCALVAR u32 Keys_Down = 0;
 LOCALVAR u32 Keys_Up = 0;
@@ -451,12 +451,17 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	}
 
 #if vMacScreenDepth == 0
-	/* o_o */
 	MakeTable1BPP( );
 #elif vMacScreenDepth == 2
-	MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+	if ( UseColorMode == trueblnr )
+		MakeTable4BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+	else
+		MakeTable1BPP( );
 #elif vMacScreenDepth == 3
-	MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+	if ( UseColorMode == trueblnr )
+		MakeTable8BPP( CLUT_reds, CLUT_greens, CLUT_blues );
+	else
+		MakeTable1BPP( );
 #else
 	#error Bit depth unsupported (yet/at all)
 #endif
@@ -2927,8 +2932,8 @@ LOCALPROC DrawSubScreen( void ) {
     if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
 
-    C3D_TexBind( 0, &FontTex );
-    C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
+    //C3D_TexBind( 0, &FontTex );
+    //C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
     
 #ifdef DEBUG_CONSOLE
     if ( Keys_Held & KEY_X ) {
