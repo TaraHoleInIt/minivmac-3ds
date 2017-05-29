@@ -76,7 +76,7 @@ AccessControlInfo:
   SpecialMemoryArrange          : true
 
   # New3DS Exclusive Process Settings
-  SystemModeExt                 : 128MB # Legacy(Default)/124MB/178MB  Legacy:Use Old3DS SystemMode
+  SystemModeExt                 : 124MB # Legacy(Default)/124MB/178MB  Legacy:Use Old3DS SystemMode
   CpuSpeed                      : 804MHz # 268MHz(Default)/804MHz
   EnableL2Cache                 : true # false(default)/true
   CanAccessCore2                : true 
@@ -152,29 +152,18 @@ AccessControlInfo:
    - ndm:u
    - pxi:dev
    - APT:U
-   - ac:u
    - act:u
-   - am:net
-   - boss:U
-   - cam:u
    - cecd:u
    - csnd:SND
    - frd:u
-   - http:C
    - ir:USER
    - ir:u
    - ir:rst
    - ldr:ro
-   - mic:u
-   - news:u
-   - nfc:u
    - nim:aoc
    - nwm::UDS
    - ptm:u
-   - qtm:u
    - soc:U
-   - ssl:C
-   - y2r:u
 
 
 SystemControlInfo:
