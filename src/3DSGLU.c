@@ -824,10 +824,10 @@ static int Video_SetupRenderTarget( void ) {
     SubRenderTarget = C3D_RenderTargetCreate( 240, 320, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8 );
     
     if ( MainRenderTarget && SubRenderTarget ) {
-        C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0x00FF00FF, 0 );
+        C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0x000000FF, 0 );
         C3D_RenderTargetSetOutput( MainRenderTarget, GFX_TOP, GFX_LEFT, DISPLAY_TRANSFER_FLAGS );
         
-        C3D_RenderTargetSetClear( SubRenderTarget, C3D_CLEAR_ALL, 0x0000FFFF, 0 );
+        C3D_RenderTargetSetClear( SubRenderTarget, C3D_CLEAR_ALL, 0x000000FF, 0 );
         C3D_RenderTargetSetOutput( SubRenderTarget, GFX_BOTTOM, GFX_LEFT, DISPLAY_TRANSFER_FLAGS );
         
         return 1;
@@ -2964,6 +2964,7 @@ LOCALPROC Handle3FingerSalute( void ) {
 LOCALPROC HandleTheEvent( void ) {
     if ( aptMainLoop( ) ) {
         hidScanInput( );
+        irrstScanInput( );
         
         Keys_Down = hidKeysDown( );
         Keys_Up = hidKeysUp( );
@@ -3339,7 +3340,6 @@ LOCALPROC DoN3DSSpeedup( void ) {
     APT_CheckNew3DS( &Result );
     
     if ( Result ) {
-    	printf( "n3ds clock boost enabled\n" );
         osSetSpeedupEnable( true );
     }
     
@@ -3349,7 +3349,7 @@ LOCALPROC DoN3DSSpeedup( void ) {
 LOCALFUNC blnr InitOSGLU(void)
 {
     chdir( "sdmc:/3ds/vmac/" );
-    
+
     MSAtAppStart = osGetTime( );
 
     if ( Video_Init( ) )
@@ -3372,7 +3372,7 @@ LOCALFUNC blnr InitOSGLU(void)
 		DoN3DSSpeedup( );
 		return trueblnr;
 	}
-    printf( "B\n" );
+
 	return falseblnr;
 }
 
