@@ -36,7 +36,7 @@ DATA		:=	data
 INCLUDES	:=	variants/$(MINIVMAC_VARIANT)/cfg src
 #ROMFS		:=	romfs
 APP_TITLE	=	Mini vMac $(MINIVMAC_VARIANT)
-APP_DESCRIPTION = Macintosh Plus Emulator
+APP_DESCRIPTION = Macintosh Plus 4MB
 APP_AUTHOR	=	TarableCode
 ICON        = icon.png
 
@@ -138,7 +138,7 @@ endif
 $(OUTPUT).cia:  $(BUILD)
 	# arm-none-eabi-strip $(OUTPUT).elf
 	bannertool makebanner -i banners/$(MINIVMAC_VARIANT).png -a banners/dummy.wav -o $(OUTPUT).banner
-	makerom -f cia -o $(OUTPUT).cia -rsf rsf/$(MINIVMAC_VARIANT).rsf -target t -elf $(OUTPUT).elf -icon $(OUTPUT).smdh -banner $(OUTPUT).banner -desc app:4
+	makerom -f cia -o $(OUTPUT).cia -rsf rsf/$(MINIVMAC_VARIANT).rsf -target t -elf $(OUTPUT).elf -icon $(OUTPUT).smdh -banner $(OUTPUT).banner
 
 .PHONY: $(BUILD) clean all
 
