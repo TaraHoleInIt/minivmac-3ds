@@ -513,6 +513,10 @@ struct Vertex {
 
 #define Font_Max_Vertex 1024
 
+float ColorBlack[ 4 ] = { 0.0, 0.0, 0.0, 1.0 };
+float ColorGreen[ 4 ] = { 0.0, 1.0, 0.0, 1.0 };
+float ColorAqua[ 4 ] = { 0.0, 1.0, 1.0, 1.0 };
+
 LOCALVAR struct Vertex* FontVertexList = NULL;
 LOCALVAR blnr HasFontLoaded = falseblnr;
 
@@ -609,7 +613,6 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, float R, float G, float B, 
 		return 1;
 	}
 	
-	MacMsg( ( char* ) __FUNCTION__, "No space left in vertex buffer!", falseblnr );
 	return 0;
 }
 
@@ -687,6 +690,16 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, float FGColor[ 4 ],
 	return i;
 }
 
+LOCALPROC FontRenderAll( blnr Clear ) {
+	C3D_TexBind( 0, &FontTex );
+
+	if ( VertexCount >= 6 )
+		C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
+	
+	if ( Clear == trueblnr )
+		VertexCount = 0;
+}
+
 LOCALFUNC int SetupFontVBuffer( void ) {
 	C3D_BufInfo* BufInfo = NULL;
 
@@ -744,8 +757,6 @@ LOCALPROC BuildGlyphCoords( void ) {
  * Loads the bitmap font sheet.
  */
 LOCALPROC LoadFont( void ) {
-	float fg[ 4 ] = { 0.0f, 1.0f, 1.0f, 1.0f };
-	float bg[ 4 ] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	int Height = 0;
 	int Width = 0;
 	
@@ -756,8 +767,6 @@ LOCALPROC LoadFont( void ) {
 			if ( SetupFontVBuffer( ) ) {
 				HasFontLoaded = trueblnr;
 				BuildGlyphCoords( );
-				
-				FontDrawString( 25, 25, "Tara has bad gas. o_o", fg, bg );
 			}
 		} else {
 			MacMsg( "Invalid resource", "Font size must be 256x128", falseblnr );
@@ -1738,7 +1747,15 @@ LOCALVAR int DSKeyMapping[ NumDSKeys ] = {
 	TKP_LeftArrow,
 	TKP_RightArrow,
 	TKP_UpArrow,
-	TKP_DownArrow
+	TKP_DownArrow,
+	0,	// Start
+	0,	// Select
+	0,	// L
+	0,	// R
+	0,	// L2
+	0,	// R2
+	0x20,
+	TKP_Shift
 };
 
 LOCALVAR int CurrentKeyDown = 0;
@@ -1763,6 +1780,9 @@ LOCALPROC Keyboard_OnPenDown( touchPosition* TP );
 LOCALPROC Keyboard_OnPenUp( touchPosition* TP );
 LOCALPROC DoKeyCode( int Key, blnr Down );
 
+LOCALPROC KeyboardStartBind( void ) {
+}
+
 LOCALPROC KeyboardBind3DSKey( int DSKey, ui3b TouchKey ) {
 	DSKeyMapping[ DSKey ] = TouchKey;
 }
@@ -1776,10 +1796,10 @@ LOCALPROC DoBoundKey( int DSKey, int KeyMask ) {
 }
 
 LOCALPROC KeyboardHandle3DSKeyBinds( void ) {
-	DoBoundKey( DSKey_Left, KEY_LEFT );
-	DoBoundKey( DSKey_Right, KEY_RIGHT );
-	DoBoundKey( DSKey_Up, KEY_UP );
-	DoBoundKey( DSKey_Down, KEY_DOWN );
+	DoBoundKey( DSKey_Left, KEY_DLEFT );
+	DoBoundKey( DSKey_Right, KEY_DRIGHT );
+	DoBoundKey( DSKey_Up, KEY_DUP );
+	DoBoundKey( DSKey_Down, KEY_DDOWN );
 	DoBoundKey( DSKey_Start, KEY_START );
 	DoBoundKey( DSKey_Select, KEY_SELECT );
 	DoBoundKey( DSKey_L, KEY_L );
@@ -3009,9 +3029,6 @@ LOCALPROC DrawMainScreen( void ) {
     DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
 }
 
-extern int FramesTooSlow;
-extern int FramesVideoDisabled;
-
 LOCALPROC DrawSubScreen( void ) {
     float SubScaleX = ( ( float ) MySubScreenWidth ) / ( ( float ) vMacScreenWidth );
     float SubScaleY = ( ( float ) MySubScreenHeight ) / ( ( float ) vMacScreenHeight );
@@ -3025,9 +3042,6 @@ LOCALPROC DrawSubScreen( void ) {
     if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
 
-    //C3D_TexBind( 0, &FontTex );
-    //C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
-    
 #ifdef DEBUG_CONSOLE
     if ( Keys_Held & KEY_X ) {
     	DebugConsoleUpdate( );
