@@ -30,7 +30,7 @@
 /* Uncomment to use debug console as a texture.
  * Press and hold X to see it.
  */
-//#define DEBUG_CONSOLE
+#define DEBUG_CONSOLE
 
 LOCALVAR u32 Keys_Down = 0;
 LOCALVAR u32 Keys_Up = 0;
@@ -491,7 +491,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	iprintf( "\x1b[2J" );
+	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 struct Vertex {
@@ -1671,6 +1672,23 @@ const int Keyboard_Map[ Map_Height ][ Map_Width ] = {
 #define TKP_LeftArrow 0xF5
 #define TKP_RightArrow 0xF4
 #define TKP_DownArrow 0xF3
+#define TKP_F1 0xF2
+#define TKP_F2 0xF1
+#define TKP_F3 0xF0
+#define TKP_F4 0xEF
+#define TKP_F5 0xEE
+#define TKP_F6 0xED
+#define TKP_F7 0xEC
+#define TKP_F8 0xEB
+#define TKP_F9 0xEA
+#define TKP_F10 0xE9
+#define TKP_F11 0xE8
+#define TKP_F12 0xE7
+#define TKP_Close 0xE6
+#define TKP_InsertDisk 0xE5
+#define TKP_Scale 0xE4
+#define TKP_ControlMode 0xE3
+#define TKP_Bind 0xE2
 
 typedef enum {
     Keyboard_State_Normal = 0,
@@ -1678,10 +1696,54 @@ typedef enum {
     Keyboard_State_Capslock
 } KeyboardState;
 
+enum {
+	DSKey_Left = 0,
+	DSKey_Right,
+	DSKey_Up,
+	DSKey_Down,
+	DSKey_Start,
+	DSKey_Select,
+	DSKey_L,
+	DSKey_R,
+	DSKey_ZL,
+	DSKey_ZR,
+	DSKey_A,
+	DSKey_B,
+	DSKey_X,
+	DSKey_Y,
+	NumDSKeys
+};
+
+LOCALVAR const char* const DSKeyNames[ NumDSKeys ] = {
+	"Left",
+	"Right",
+	"Up",
+	"Down",
+	"Start",
+	"Select",
+	"L Trigger",
+	"R Trigger",
+	"ZL Trigger",
+	"ZR Trigger",
+	"A",
+	"B",
+	"X",
+	"Y"
+};
+
 LOCALVAR KeyboardState KeyboardCurrentState = Keyboard_State_Normal;
+
+/* Set default key bindings to just the arrow keys->dpad */
+LOCALVAR int DSKeyMapping[ NumDSKeys ] = {
+	TKP_LeftArrow,
+	TKP_RightArrow,
+	TKP_UpArrow,
+	TKP_DownArrow
+};
 
 LOCALVAR int CurrentKeyDown = 0;
 
+LOCALVAR blnr KeyboardIsInBindMode = falseblnr;
 LOCALVAR blnr KeyboardIsUppercase = falseblnr;
 LOCALVAR blnr KeyboardIsActive = falseblnr;
 
@@ -1700,6 +1762,35 @@ blnr CommandState = falseblnr;
 LOCALPROC Keyboard_OnPenDown( touchPosition* TP );
 LOCALPROC Keyboard_OnPenUp( touchPosition* TP );
 LOCALPROC DoKeyCode( int Key, blnr Down );
+
+LOCALPROC KeyboardBind3DSKey( int DSKey, ui3b TouchKey ) {
+	DSKeyMapping[ DSKey ] = TouchKey;
+}
+
+LOCALPROC DoBoundKey( int DSKey, int KeyMask ) {
+	if ( ( Keys_Down & KeyMask ) && DSKeyMapping[ DSKey ] != 0 )
+		DoKeyCode( DSKeyMapping[ DSKey ], trueblnr );
+		
+	if ( ( Keys_Up & KeyMask ) && DSKeyMapping[ DSKey ] != 0 )
+		DoKeyCode( DSKeyMapping[ DSKey ], falseblnr );
+}
+
+LOCALPROC KeyboardHandle3DSKeyBinds( void ) {
+	DoBoundKey( DSKey_Left, KEY_LEFT );
+	DoBoundKey( DSKey_Right, KEY_RIGHT );
+	DoBoundKey( DSKey_Up, KEY_UP );
+	DoBoundKey( DSKey_Down, KEY_DOWN );
+	DoBoundKey( DSKey_Start, KEY_START );
+	DoBoundKey( DSKey_Select, KEY_SELECT );
+	DoBoundKey( DSKey_L, KEY_L );
+	DoBoundKey( DSKey_R, KEY_R );
+	DoBoundKey( DSKey_ZL, KEY_ZL );
+	DoBoundKey( DSKey_ZR, KEY_ZR );
+	DoBoundKey( DSKey_A, KEY_A );
+	DoBoundKey( DSKey_B, KEY_B );
+	DoBoundKey( DSKey_X, KEY_X );
+	DoBoundKey( DSKey_Y, KEY_Y );
+}
 
 LOCALFUNC rgba32* KeyboardGetImage( KeyboardState State ) {
     switch ( State ) {
@@ -1764,6 +1855,7 @@ LOCALPROC Keyboard_DeInit( void ) {
  * This handles mapping the DPAD to the Mac arrow keys.
  * Should be useful for some games.
  */
+#if 0
 LOCALPROC Keyboard_HandleDPAD( void ) {
     if ( Keys_Down & KEY_DLEFT ) DoKeyCode( TKP_LeftArrow, trueblnr );
     if ( Keys_Up & KEY_DLEFT ) DoKeyCode( TKP_LeftArrow, falseblnr );
@@ -1777,6 +1869,7 @@ LOCALPROC Keyboard_HandleDPAD( void ) {
     if ( Keys_Down & KEY_DDOWN ) DoKeyCode( TKP_DownArrow, trueblnr );
     if ( Keys_Up & KEY_DDOWN ) DoKeyCode( TKP_DownArrow, falseblnr );
 }
+#endif
 
 LOCALPROC Keyboard_Update( void ) {
     touchPosition TP;
@@ -2991,8 +3084,13 @@ LOCALPROC HandleTheEvent( void ) {
         	MacMsgDisplayOff( );
         }
         
+        #if 0
         /* Handle the DPAD arrow keys regardless of if the keyboard is shown */
         Keyboard_HandleDPAD( );
+        #endif
+        
+        /* Handle 3DS->Mac key bindings */
+        KeyboardHandle3DSKeyBinds( );
         
         UpdateScreenScroll( );
         
