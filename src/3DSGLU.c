@@ -1793,6 +1793,7 @@ blnr CommandState = falseblnr;
 LOCALPROC Keyboard_OnPenDown( touchPosition* TP );
 LOCALPROC Keyboard_OnPenUp( touchPosition* TP );
 LOCALPROC DoKeyCode( int Key, blnr Down );
+LOCALPROC ResetSpecialKeys( void );
 
 LOCALPROC KeyboardStartBind( void ) {
 }
@@ -1802,11 +1803,21 @@ LOCALPROC KeyboardBind3DSKey( int DSKey, ui3b TouchKey ) {
 }
 
 LOCALPROC DoBoundKey( int DSKey, int KeyMask ) {
-	if ( ( Keys_Down & KeyMask ) && DSKeyMapping[ DSKey ] != 0 )
-		DoKeyCode( DSKeyMapping[ DSKey ], trueblnr );
-		
-	if ( ( Keys_Up & KeyMask ) && DSKeyMapping[ DSKey ] != 0 )
-		DoKeyCode( DSKeyMapping[ DSKey ], falseblnr );
+	blnr ShouldDoAThing = falseblnr;
+	blnr Down = falseblnr;
+	
+	if ( Keys_Down & KeyMask ) {
+		ShouldDoAThing = trueblnr;
+		Down = trueblnr;
+	}
+	
+	if ( Keys_Up & KeyMask ) {
+		ShouldDoAThing = trueblnr;
+		Down = falseblnr;
+	}
+	
+	if ( ShouldDoAThing == trueblnr && DSKeyMapping[ DSKey ] != 0 )
+		DoKeyCode( DSKeyMapping[ DSKey ], Down );
 }
 
 LOCALPROC KeyboardHandle3DSKeyBinds( void ) {
@@ -1918,17 +1929,12 @@ LOCALPROC Keyboard_Update( void ) {
 }
 
 LOCALPROC Keyboard_Toggle( void ) {
-    if ( KeyboardIsActive ) {
-        /* We don't need to do anything,
-         * yet.
-         */
-    } else {
-        /* Reset keyboard to lowercase and unpress any held keys. */
-        KeyboardSetState( Keyboard_State_Normal );
-        Keyboard_OnPenUp( NULL );
-    }
+	/* Reset keyboard to lowercase and unpress any held keys. */
+	KeyboardSetState( Keyboard_State_Normal );
+	Keyboard_OnPenUp( NULL );
+	ResetSpecialKeys( );
     
-    KeyboardIsActive = ! KeyboardIsActive;
+	KeyboardIsActive = ! KeyboardIsActive;
 }
 
 /* Inverts the colours of the given region of pixels while leaving the alpha channel alone.
