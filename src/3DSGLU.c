@@ -389,26 +389,40 @@ static void Convert8BPP( u8* Src, u16* Dest, int Size ) {
  * Sets up the 4bpp->16bpp paletted to RGB565 conversion table.
  */
 void MakeTable4BPP( u16* Reds, u16* Greens, u16* Blues ) {
-    u8 l;
-    u8 h;
-    int i = 0;
-    
-    for ( i = 0; i < 256; i++ ) {
-        l = i & 0x0F;
-        h = i >> 4;
-        
-        FBConvTable[ i ][ 1 ] = RGB8_to_565( Reds[ l ] >> 8, Greens[ l ] >> 8, Blues[ l ] >> 8 );
-        FBConvTable[ i ][ 0 ] = RGB8_to_565( Reds[ h ] >> 8, Greens[ h ] >> 8, Blues[ h ] >> 8 );
-    }
+	u32* TablePtr = ( u32* ) FBConvTable;
+	u32 PixelsOut = 0;
+	int r, g, b = 0;
+	int l, h = 0;
+	int i = 0;
+	
+	for ( i = 0; i < 256; i++ ) {
+		l = i >> 4;
+		h = i & 0x0F;
+		
+		r = Reds[ l ] >> 11;
+		g = Greens[ l ] >> 10;
+		b = Blues[ l ] >> 11;
+		
+		PixelsOut = RGB565( r, g, b );
+		
+		r = Reds[ h ] >> 11;
+		g = Greens[ h ] >> 10;
+		b = Blues[ h ] >> 11;
+		
+		PixelsOut |= RGB565( r, g, b ) << 16;	
+		TablePtr[ i ] = PixelsOut;
+	}
 }
 
 /*
  * Converts an 4bpp packed image and outputs it in RGB565 format.
  */
 static void Convert4BPP( u8* Src, u16* Dest, int Size ) {
+	u32* TablePtr = ( u32* ) FBConvTable;
+	u32* Temp = ( u32* ) Dest;
+
     while ( Size-- ) {
-        *Dest++ = FBConvTable[ *Src ][ 0 ];
-        *Dest++ = FBConvTable[ *Src++ ][ 1 ];
+        *Temp++ = TablePtr[ *Src++ ];
     }
 }
 
