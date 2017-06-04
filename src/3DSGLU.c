@@ -1714,11 +1714,13 @@ blnr CapsLockState = falseblnr;
 blnr ShiftState = falseblnr;
 blnr OptionState = falseblnr;
 blnr CommandState = falseblnr;
+blnr ControlState = falseblnr;
 
 LOCALPROC Keyboard_OnPenDown( touchPosition* TP );
 LOCALPROC Keyboard_OnPenUp( touchPosition* TP );
 LOCALPROC DoKeyCode( int Key, blnr Down );
 LOCALPROC ResetSpecialKeys( void );
+LOCALPROC ToggleScreenScaleMode( void );
 
 LOCALPROC KeyboardStartBind( void ) {
 }
@@ -2025,6 +2027,7 @@ LOCALVAR blnr KeyboardShiftState = falseblnr;
 LOCALVAR blnr KeyboardCapsState = falseblnr;
 LOCALVAR blnr KeyboardOptionState = falseblnr;
 LOCALVAR blnr KeyboardCommandState = falseblnr;
+LOCALVAR blnr KeyboardControlState = falseblnr;
 
 LOCALPROC ToggleStickyKey( si3b MacKey, blnr Down, blnr* KeyState ) {
     if ( ! KeyState )
@@ -2043,11 +2046,13 @@ LOCALPROC ResetSpecialKeys( void ) {
     Keyboard_UpdateKeyMap2( MKC_CapsLock, falseblnr );
     Keyboard_UpdateKeyMap2( MKC_Option, falseblnr );
     Keyboard_UpdateKeyMap2( MKC_Command, falseblnr );
+    Keyboard_UpdateKeyMap2( MKC_Control, falseblnr );
     
     KeyboardShiftState = falseblnr;
     KeyboardCapsState = falseblnr;
     KeyboardOptionState = falseblnr;
     KeyboardCommandState = falseblnr;
+    KeyboardControlState = falseblnr;
 }
 
 LOCALPROC DoShift( blnr Down ) {
@@ -2116,6 +2121,20 @@ LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
 			
 			return;
 		}
+		case TKP_Scale: {
+			if ( Down == falseblnr )
+				ToggleScreenScaleMode( );
+				
+			InvertKeyboardTiles( TKP_Scale );
+			return;
+		}
+		case TKP_ControlMode: {
+			if ( Down == trueblnr )
+				InvertKeyboardTiles( TKP_ControlMode );
+			
+			ToggleStickyKey( MKC_Control, Down, &KeyboardControlState );			
+			return;
+		};
 		case 0: return;
 		default: break;
 	};
@@ -3018,17 +3037,6 @@ LOCALPROC DrawSubScreen( void ) {
 
 /* --- event handling for main window --- */
 
-LOCALPROC HandleControlMode( void ) {
-    static blnr ToggleState = falseblnr;
-    
-    if ( Keys_Down & KEY_START ) {
-        if ( ToggleState == falseblnr ) Keyboard_UpdateKeyMap2( MKC_Control, trueblnr );
-        else Keyboard_UpdateKeyMap2( MKC_Control, falseblnr );
-        
-        ToggleState = ! ToggleState;
-    }
-}
-
 LOCALPROC Handle3FingerSalute( void ) {
     if ( ( Keys_Held & KEY_L ) && ( Keys_Held & KEY_R ) && ( Keys_Held & KEY_START ) )
    		ForceMacOff = trueblnr;
@@ -3047,27 +3055,18 @@ LOCALPROC HandleTheEvent( void ) {
         MyMouseButtonSet( IsMouseKeyDown( ) );
         
         Handle3FingerSalute( );
-        HandleControlMode( );
         
         if ( KeyboardIsActive )
             Keyboard_Update( );
         
-        if ( Keys_Down & KEY_SELECT )
-            ToggleScreenScaleMode( );
-        
         /* Only switch to keyboard mode if the graphics were loaded */
-        if ( ( Keys_Down & KEY_Y ) && HaveKeyboardLoaded == trueblnr )
+        if ( ( Keys_Down & KEY_START ) && HaveKeyboardLoaded == trueblnr )
             Keyboard_Toggle( );
             
         /* Pressing X should dismiss all emulator messages */
         if ( ( Keys_Down & KEY_X ) ) {
         	MacMsgDisplayOff( );
         }
-        
-        #if 0
-        /* Handle the DPAD arrow keys regardless of if the keyboard is shown */
-        Keyboard_HandleDPAD( );
-        #endif
         
         /* Handle 3DS->Mac key bindings */
         KeyboardHandle3DSKeyBinds( );
