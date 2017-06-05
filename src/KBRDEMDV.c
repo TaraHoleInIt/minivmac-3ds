@@ -35,6 +35,10 @@
 #include <stdio.h>
 #endif
 
+/*
+	ReportAbnormalID unused 0x0B03 - 0x0BFF
+*/
+
 IMPORTPROC KYBD_ShiftOutData(ui3b v);
 IMPORTFUNC ui3b KYBD_ShiftInData(void);
 
@@ -104,7 +108,8 @@ LOCALVAR int InquiryCommandTimer = 0;
 GLOBALPROC DoKybd_ReceiveCommand(void)
 {
 	if (KybdState != kKybdStateRecievingCommand) {
-		ReportAbnormal("KybdState != kKybdStateRecievingCommand");
+		ReportAbnormalID(0x0B01,
+			"KybdState != kKybdStateRecievingCommand");
 	} else {
 		ui3b in = KYBD_ShiftInData();
 
@@ -145,7 +150,8 @@ GLOBALPROC DoKybd_ReceiveCommand(void)
 GLOBALPROC DoKybd_ReceiveEndCommand(void)
 {
 	if (KybdState != kKybdStateRecievingEndCommand) {
-		ReportAbnormal("KybdState != kKybdStateRecievingEndCommand");
+		ReportAbnormalID(0x0B02,
+			"KybdState != kKybdStateRecievingEndCommand");
 	} else {
 		KybdState = kKybdStateIdle;
 #ifdef _VIA_Debug

@@ -324,11 +324,51 @@ LOCALPROC DrawSpclMode0(char *Title, SpclModeBody Body)
 #define DisconnectKeyCodes1 DisconnectKeyCodes
 #endif
 
+LOCALPROC ClStrAppendHexNib(int *L0, ui3b *r, ui3r v)
+{
+	if (v < 10) {
+		ClStrAppendChar(L0, r, kCellDigit0 + v);
+	} else {
+		ClStrAppendChar(L0, r, kCellUpA + (v - 10));
+	}
+}
+
+LOCALPROC ClStrAppendHexByte(int *L0, ui3b *r, ui3r v)
+{
+	ClStrAppendHexNib(L0, r, (v >> 4) & 0x0F);
+	ClStrAppendHexNib(L0, r, v & 0x0F);
+}
+
+LOCALPROC ClStrAppendHexWord(int *L0, ui3b *r, ui4r v)
+{
+	ClStrAppendHexByte(L0, r, (v >> 8) & 0xFF);
+	ClStrAppendHexByte(L0, r, v & 0xFF);
+}
+
+LOCALPROC DrawCellsOneLineHexWord(ui4r v)
+{
+	ui3b ps[ClStrMaxLength];
+	int L = 0;
+	int i;
+
+	ClStrAppendHexWord(&L, ps, v);
+
+	DrawCellsBeginLine();
+	for (i = 0; i < L; ++i) {
+		DrawCellAdvance(ps[i]);
+	}
+	DrawCellsEndLine();
+}
+
 LOCALPROC DrawCellsMessageModeBody(void)
 {
 	DrawCellsOneLineStr(SavedBriefMsg);
 	DrawCellsBlankLine();
 	DrawCellsOneLineStr(SavedLongMsg);
+	if (0 != SavedIDMsg) {
+		DrawCellsBlankLine();
+		DrawCellsOneLineHexWord(SavedIDMsg);
+	}
 }
 
 LOCALPROC DrawMessageMode(void)

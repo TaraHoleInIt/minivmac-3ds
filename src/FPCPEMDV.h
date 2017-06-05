@@ -19,6 +19,10 @@
 	(included by MINEM68K.c)
 */
 
+/*
+	ReportAbnormalID unused 0x0306 - 0x03FF
+*/
+
 
 LOCALVAR struct fpustruct
 {
@@ -225,7 +229,8 @@ LOCALFUNC int CheckFPCondition(ui4b predicate)
 
 LOCALIPROC DoCodeFPU_dflt(void)
 {
-	ReportAbnormal("unimplemented Floating Point Instruction");
+	ReportAbnormalID(0x0301,
+		"unimplemented Floating Point Instruction");
 #if dbglog_HAVE
 	{
 		ui4r opcode = ((ui4r)(V_regs.CurDecOpY.v[0].AMd) << 8)
@@ -381,11 +386,11 @@ LOCALIPROC DoCodeFPU_Trapcc(void)
 		(void) nextilong();
 	} else if (thereg == 4) {
 	} else {
-		ReportAbnormal("Invalid FTRAPcc (?");
+		ReportAbnormalID(0x0302, "Invalid FTRAPcc (?");
 	}
 
 	if (condition_true) {
-		ReportAbnormal("FTRAPcc trapping");
+		ReportAbnormalID(0x0303, "FTRAPcc trapping");
 		Exception(7);
 	}
 }
@@ -1035,7 +1040,8 @@ LOCALPROC DoCodeFPU_GenOpEA(ui4b word2)
 					"DecodeAddrModeRegister fails GetFPSource P");
 #endif
 			} else {
-				ReportAbnormal("Packed Decimal in GetFPSource");
+				ReportAbnormalID(0x0304,
+					"Packed Decimal in GetFPSource");
 					/* correct? just set to a constant for now */
 				/* *r = 9123456789.0; */
 				DoCodeFPU_GenOp(word2, &source);
@@ -1131,7 +1137,7 @@ LOCALPROC DoCodeFPU_Move_FP_EA(ui4b word2)
 				dbglog_writeln("DecodeAddrModeRegister fails FMOVE P");
 #endif
 			} else {
-				ReportAbnormal("Packed Decimal in FMOVE");
+				ReportAbnormalID(0x0305, "Packed Decimal in FMOVE");
 				/* ? */
 			}
 			break;

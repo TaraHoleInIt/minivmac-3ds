@@ -34,6 +34,14 @@
 
 #include "GLOBGLUE.h"
 
+/*
+	ReportAbnormalID unused 0x111D - 0x11FF
+*/
+
+/*
+	ReportAbnormalID ranges unused 0x12xx - 0xFFxx
+*/
+
 IMPORTPROC m68k_reset(void);
 IMPORTPROC IWM_Reset(void);
 IMPORTPROC SCC_Reset(void);
@@ -199,11 +207,11 @@ LOCALVAR blnr GotOneAbnormal = falseblnr;
 #define ReportAbnormalInterrupt 0
 #endif
 
+GLOBALPROC DoReportAbnormalID(ui4r id
 #if dbglog_HAVE
-GLOBALPROC DoReportAbnormal(char *s)
-#else
-GLOBALPROC DoReportAbnormal(void)
+	, char *s
 #endif
+	)
 {
 #if dbglog_HAVE
 	dbglog_StartLine();
@@ -211,8 +219,9 @@ GLOBALPROC DoReportAbnormal(void)
 	dbglog_writeCStr(s);
 	dbglog_writeReturn();
 #endif
+
 	if (! GotOneAbnormal) {
-		WarnMsgAbnormal();
+		WarnMsgAbnormalID(id);
 #if ReportAbnormalInterrupt
 		SetInterruptButton(trueblnr);
 #endif
@@ -685,7 +694,7 @@ LOCALPROC AddToATTList(ATTep p)
 {
 	ui4r NewLast = LastATTel + 1;
 	if (NewLast >= MaxATTListN) {
-		ReportAbnormal("MaxATTListN not big enough");
+		ReportAbnormalID(0x1101, "MaxATTListN not big enough");
 	} else {
 		ATTListA[LastATTel] = *p;
 		LastATTel = NewLast;
@@ -729,14 +738,14 @@ LOCALPROC FinishATTList(void)
 			ATTep q2;
 			for (q1 = h; nullpr != q1->Next; q1 = q1->Next) {
 				if ((q1->cmpvalu & ~ q1->cmpmask) != 0) {
-					ReportAbnormal("ATTListA bad entry");
+					ReportAbnormalID(0x1102, "ATTListA bad entry");
 				}
 				for (q2 = q1->Next; nullpr != q2->Next; q2 = q2->Next) {
 					ui5r common_mask = (q1->cmpmask) & (q2->cmpmask);
 					if ((q1->cmpvalu & common_mask) ==
 						(q2->cmpvalu & common_mask))
 					{
-						ReportAbnormal("ATTListA Conflict");
+						ReportAbnormalID(0x1103, "ATTListA Conflict");
 					}
 				}
 			}
@@ -891,7 +900,7 @@ LOCALPROC SetUp_io(void)
 				ui5r addr2 = addr & 0x1FFFF;
 
 				if ((addr2 != 0x1DA00) && (addr2 != 0x1DC00)) {
-					ReportAbnormal("another unknown access");
+					ReportAbnormalID(0x1104, "another unknown access");
 				}
 			}
 			get_fail_realblock(p);
@@ -906,7 +915,7 @@ LOCALPROC SetUp_address24(void)
 	ATTer r;
 
 	if (MemOverlay) {
-		ReportAbnormal("Overlay with 24 bit addressing");
+		ReportAbnormalID(0x1105, "Overlay with 24 bit addressing");
 	}
 
 	if (MemOverlay) {
@@ -1302,10 +1311,10 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 				} else
 #endif
 				{
-					ReportAbnormal("access VIA1 word");
+					ReportAbnormalID(0x1106, "access VIA1 word");
 				}
 			} else if ((addr & 1) != 0) {
-				ReportAbnormal("access VIA1 odd");
+				ReportAbnormalID(0x1107, "access VIA1 odd");
 			} else {
 #if CurEmMd != kEmMd_PB100
 #if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx)
@@ -1314,7 +1323,8 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 				if ((addr & 0x000FE1FE) != 0x000FE1FE)
 #endif
 				{
-					ReportAbnormal("access VIA1 nonstandard address");
+					ReportAbnormalID(0x1108,
+						"access VIA1 nonstandard address");
 				}
 #endif
 				Data = VIA1_Access(Data, WriteMem,
@@ -1337,7 +1347,7 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 							(addr >> 9) & kVIA2_Mask);
 
 				} else {
-					ReportAbnormal("access VIA2 word");
+					ReportAbnormalID(0x1109, "access VIA2 word");
 				}
 			} else if ((addr & 1) != 0) {
 				if (0x3FFF == (addr & 0x1FFFF)) {
@@ -1348,11 +1358,12 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 					Data = VIA2_Access(Data, WriteMem,
 						(addr >> 9) & kVIA2_Mask);
 				} else {
-					ReportAbnormal("access VIA2 odd");
+					ReportAbnormalID(0x110A, "access VIA2 odd");
 				}
 			} else {
 				if ((addr & 0x000001FE) != 0x00000000) {
-					ReportAbnormal("access VIA2 nonstandard address");
+					ReportAbnormalID(0x110B,
+						"access VIA2 nonstandard address");
 				}
 				Data = VIA2_Access(Data, WriteMem,
 					(addr >> 9) & kVIA2_Mask);
@@ -1365,18 +1376,19 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 	&& ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 
 			if ((addr & 0x00100000) == 0) {
-				ReportAbnormal("access SCC unassigned address");
+				ReportAbnormalID(0x110C,
+					"access SCC unassigned address");
 			} else
 #endif
 			if (! ByteSize) {
-				ReportAbnormal("Attemped Phase Adjust");
+				ReportAbnormalID(0x110D, "Attemped Phase Adjust");
 			} else
 #if ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 			if (WriteMem != ((addr & 1) != 0)) {
 				if (WriteMem) {
 #if CurEmMd >= kEmMd_512Ke
 #if CurEmMd != kEmMd_PB100
-					ReportAbnormal("access SCC even/odd");
+					ReportAbnormalID(0x110E, "access SCC even/odd");
 					/*
 						This happens on boot with 64k ROM.
 					*/
@@ -1391,7 +1403,7 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 	&& ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 
 			if (WriteMem != (addr >= kSCCWr_Block_Base)) {
-				ReportAbnormal("access SCC wr/rd base wrong");
+				ReportAbnormalID(0x110F, "access SCC wr/rd base wrong");
 			} else
 #endif
 			{
@@ -1402,7 +1414,8 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 				if ((addr & 0x001FFFF8) != 0x001FFFF8)
 #endif
 				{
-					ReportAbnormal("access SCC nonstandard address");
+					ReportAbnormalID(0x1110,
+						"access SCC nonstandard address");
 				}
 #endif
 				Data = SCC_Access(Data, WriteMem,
@@ -1411,11 +1424,11 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 			break;
 		case kMMDV_Extn:
 			if (ByteSize) {
-				ReportAbnormal("access Sony byte");
+				ReportAbnormalID(0x1111, "access Sony byte");
 			} else if ((addr & 1) != 0) {
-				ReportAbnormal("access Sony odd");
+				ReportAbnormalID(0x1112, "access Sony odd");
 			} else if (! WriteMem) {
-				ReportAbnormal("access Sony read");
+				ReportAbnormalID(0x1113, "access Sony read");
 			} else {
 				Extn_Access(Data, (addr >> 1) & 0x0F);
 			}
@@ -1437,7 +1450,7 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 							WriteMem, (addr + 1) & kASC_Mask);
 				}
 #else
-				ReportAbnormal("access ASC word");
+				ReportAbnormalID(0x1114, "access ASC word");
 #endif
 			} else {
 				Data = ASC_Access(Data, WriteMem, addr & kASC_Mask);
@@ -1446,17 +1459,18 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 #endif
 		case kMMDV_SCSI:
 			if (! ByteSize) {
-				ReportAbnormal("access SCSI word");
+				ReportAbnormalID(0x1115, "access SCSI word");
 			} else
 #if ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 			if (WriteMem != ((addr & 1) != 0)) {
-				ReportAbnormal("access SCSI even/odd");
+				ReportAbnormalID(0x1116, "access SCSI even/odd");
 			} else
 #endif
 			{
 #if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx)
 				if ((addr & 0x1F8F) != 0x00000000) {
-					ReportAbnormal("access SCSI nonstandard address");
+					ReportAbnormalID(0x1117,
+						"access SCSI nonstandard address");
 				}
 #endif
 				Data = SCSI_Access(Data, WriteMem, (addr >> 4) & 0x07);
@@ -1468,12 +1482,13 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 	&& ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 
 			if ((addr & 0x00100000) == 0) {
-				ReportAbnormal("access IWM unassigned address");
+				ReportAbnormalID(0x1118,
+					"access IWM unassigned address");
 			} else
 #endif
 			if (! ByteSize) {
 #if ExtraAbnormalReports
-				ReportAbnormal("access IWM word");
+				ReportAbnormalID(0x1119, "access IWM word");
 				/*
 					This happens when quitting 'Glider 3.1.2'.
 					perhaps a bad handle is being disposed of.
@@ -1482,11 +1497,11 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 			} else
 #if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx)
 			if ((addr & 1) != 0) {
-				ReportAbnormal("access IWM odd");
+				ReportAbnormalID(0x111A, "access IWM odd");
 			} else
 #else
 			if ((addr & 1) == 0) {
-				ReportAbnormal("access IWM even");
+				ReportAbnormalID(0x111B, "access IWM even");
 			} else
 #endif
 			{
@@ -1494,7 +1509,8 @@ GLOBALFUNC ui5b MMDV_Access(ATTep p, ui5b Data,
 	&& ! ((CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx))
 
 				if ((addr & 0x001FE1FF) != 0x001FE1FF) {
-					ReportAbnormal("access IWM nonstandard address");
+					ReportAbnormalID(0x111C,
+						"access IWM nonstandard address");
 				}
 #endif
 				Data = IWM_Access(Data, WriteMem,

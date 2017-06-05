@@ -32,6 +32,10 @@
 
 #include "VIAEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0410 - 0x04FF
+*/
+
 #ifdef VIA1_iA0_ChangeNtfy
 IMPORTPROC VIA1_iA0_ChangeNtfy(void);
 #endif
@@ -530,7 +534,8 @@ LOCALPROC VIA1_SetDDR_A(ui3b Data)
 		VIA1_Put_ORA(unfloatbits, VIA1_D.ORA);
 	}
 	if ((Data & ~ VIA1_ORA_CanOut) != 0) {
-		ReportAbnormal("Set VIA1_D.DDR_A unexpected direction");
+		ReportAbnormalID(0x0401,
+			"Set VIA1_D.DDR_A unexpected direction");
 	}
 }
 
@@ -547,7 +552,8 @@ LOCALPROC VIA1_SetDDR_B(ui3b Data)
 		VIA1_Put_ORB(unfloatbits, VIA1_D.ORB);
 	}
 	if ((Data & ~ VIA1_ORB_CanOut) != 0) {
-		ReportAbnormal("Set VIA1_D.DDR_B unexpected direction");
+		ReportAbnormalID(0x0402,
+			"Set VIA1_D.DDR_B unexpected direction");
 	}
 }
 
@@ -624,12 +630,13 @@ GLOBALPROC VIA1_ShiftInData(ui3b v)
 		writes 8 bits to CB2
 	*/
 	ui3b ShiftMode = (VIA1_D.ACR & 0x1C) >> 2;
+
 	if (ShiftMode != 3) {
 #if ExtraAbnormalReports
 		if (ShiftMode == 0) {
 			/* happens on reset */
 		} else {
-			ReportAbnormal("VIA Not ready to shift in");
+			ReportAbnormalID(0x0403, "VIA Not ready to shift in");
 				/*
 					Observed (rarely) in Crystal Quest played
 					at 1x speed in "-t mc64".
@@ -650,7 +657,7 @@ GLOBALFUNC ui3b VIA1_ShiftOutData(void)
 		reads 8 bits from CB2
 	*/
 	if (((VIA1_D.ACR & 0x1C) >> 2) != 7) {
-		ReportAbnormal("VIA Not ready to shift out");
+		ReportAbnormalID(0x0404, "VIA Not ready to shift out");
 		return 0;
 	} else {
 		VIA1_SetInterruptFlag(kIntSR);
@@ -976,7 +983,8 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 					break;
 				case 6 : /* shift out under o2 clock */
 					if ((! WriteMem) || (VIA1_D.SR != 0)) {
-						ReportAbnormal("VIA shift mode 6, non zero");
+						ReportAbnormalID(0x0405,
+							"VIA shift mode 6, non zero");
 					} else {
 #ifdef _VIA_Debug
 						fprintf(stderr, "posting Foo2Task\n");
@@ -1024,13 +1032,13 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				VIA1_D.ACR = Data;
 				if ((VIA1_D.ACR & 0x20) != 0) {
 					/* Not pulse counting? */
-					ReportAbnormal(
+					ReportAbnormalID(0x0406,
 						"Set VIA1_D.ACR T2 Timer pulse counting");
 				}
 				switch ((VIA1_D.ACR & 0xC0) >> 6) {
 					/* case 1: happens in early System 6 */
 					case 2:
-						ReportAbnormal(
+						ReportAbnormalID(0x0407,
 							"Set VIA1_D.ACR T1 Timer mode 2");
 						break;
 				}
@@ -1043,14 +1051,14 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 					case 2:
 					case 4:
 					case 5:
-						ReportAbnormal(
+						ReportAbnormalID(0x0408,
 							"Set VIA1_D.ACR shift mode 1,2,4,5");
 						break;
 					default:
 						break;
 				}
 				if ((VIA1_D.ACR & 0x03) != 0) {
-					ReportAbnormal(
+					ReportAbnormalID(0x0409,
 						"Set VIA1_D.ACR T2 Timer latching enabled");
 				}
 			} else {
@@ -1067,20 +1075,21 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				if (! Ui3rSetContains(VIA1_CB2modesAllowed,
 					(VIA1_D.PCR >> 5) & 0x07))
 				{
-					ReportAbnormal("Set VIA1_D.PCR CB2 Control mode?");
+					ReportAbnormalID(0x040A,
+						"Set VIA1_D.PCR CB2 Control mode?");
 				}
 				if ((VIA1_D.PCR & 0x10) != 0) {
-					ReportAbnormal(
+					ReportAbnormalID(0x040B,
 						"Set VIA1_D.PCR CB1 INTERRUPT CONTROL?");
 				}
 				if (! Ui3rSetContains(VIA1_CA2modesAllowed,
 					(VIA1_D.PCR >> 1) & 0x07))
 				{
-					ReportAbnormal(
+					ReportAbnormalID(0x040C,
 						"Set VIA1_D.PCR CA2 INTERRUPT CONTROL?");
 				}
 				if ((VIA1_D.PCR & 0x01) != 0) {
-					ReportAbnormal(
+					ReportAbnormalID(0x040D,
 						"Set VIA1_D.PCR CA1 INTERRUPT CONTROL?");
 				}
 			} else {
@@ -1117,7 +1126,7 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 						this just checks not cleared later.
 					*/
 					if ((Data & VIA1_IER_Never0) != 0) {
-						ReportAbnormal("IER Never0 clr");
+						ReportAbnormalID(0x040E, "IER Never0 clr");
 					}
 #endif
 				} else {
@@ -1125,7 +1134,7 @@ GLOBALFUNC ui5b VIA1_Access(ui5b Data, blnr WriteMem, CPTR addr)
 						/* Set Enable Bits */
 #if 0 != VIA1_IER_Never1
 					if ((VIA1_D.IER & VIA1_IER_Never1) != 0) {
-						ReportAbnormal("IER Never1 set");
+						ReportAbnormalID(0x040F, "IER Never1 set");
 					}
 #endif
 				}

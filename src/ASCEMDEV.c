@@ -29,6 +29,10 @@
 
 #include "ASCEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0F0E, 0x0F1E - 0x0FFF
+*/
+
 LOCALVAR ui3r SoundReg801 = 0;
 LOCALVAR ui3r SoundReg802 = 0;
 LOCALVAR ui3r SoundReg803 = 0;
@@ -104,7 +108,8 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 					if (((ui4b)(ASC_FIFO_InA - ASC_FIFO_Out)) >= 0x400)
 					{
 #if 0 /* seems to happen in tetris */
-						ReportAbnormal("ASC - Channel A Overflow");
+						ReportAbnormalID(0x0F01,
+							"ASC - Channel A Overflow");
 #endif
 						SoundReg804 |= 0x02;
 					} else {
@@ -131,7 +136,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 #endif
 					} else {
 						if (0 != (SoundReg804 & 0x02)) {
-							ReportAbnormal("ASC_Access : "
+							ReportAbnormalID(0x0F02, "ASC_Access : "
 								"full flag A not already clear");
 							SoundReg804 &= ~ 0x02;
 						}
@@ -140,11 +145,13 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 					}
 				} else {
 					if (0 == (SoundReg802 & 2)) {
-						ReportAbnormal("ASC - Channel B for Mono");
+						ReportAbnormalID(0x0F03,
+							"ASC - Channel B for Mono");
 					}
 					if (((ui4b)(ASC_FIFO_InB - ASC_FIFO_Out)) >= 0x400)
 					{
-						ReportAbnormal("ASC - Channel B Overflow");
+						ReportAbnormalID(0x0F04,
+							"ASC - Channel B Overflow");
 						SoundReg804 |= 0x08;
 					} else {
 
@@ -170,7 +177,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 #endif
 					} else {
 						if (0 != (SoundReg804 & 0x08)) {
-							ReportAbnormal("ASC_Access : "
+							ReportAbnormalID(0x0F05, "ASC_Access : "
 								"full flag B not already clear");
 							SoundReg804 &= ~ 0x08;
 						}
@@ -207,7 +214,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 		switch (addr) {
 			case 0x800: /* VERSION */
 				if (WriteMem) {
-					ReportAbnormal("ASC - writing VERSION");
+					ReportAbnormalID(0x0F06, "ASC - writing VERSION");
 				} else {
 					Data = 0;
 				}
@@ -224,7 +231,8 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 						}
 					} else {
 						if (Data > 2) {
-							ReportAbnormal("ASC - unexpected ENABLE");
+							ReportAbnormalID(0x0F07,
+								"ASC - unexpected ENABLE");
 						}
 					}
 					SoundReg801 = Data;
@@ -256,20 +264,20 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 							}
 
 #if 0
-							ReportAbnormal(
+							ReportAbnormalID(0x0F08,
 								"ASC - changing CONTROL while ENABLEd");
 #endif
 						}
 					}
 #endif
 					if (0 != (Data & ~ 2)) {
-						ReportAbnormal(
+						ReportAbnormalID(0x0F09,
 							"ASC - unexpected CONTROL value");
 					}
 					SoundReg802 = Data;
 				} else {
 					Data = SoundReg802;
-					ReportAbnormal(
+					ReportAbnormalID(0x0F0A,
 						"ASC - reading CONTROL value");
 				}
 #if ASC_dolog && 1
@@ -280,17 +288,17 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 			case 0x803:
 				if (WriteMem) {
 					if (0 != (Data & ~ 0x80)) {
-						ReportAbnormal(
+						ReportAbnormalID(0x0F0B,
 							"ASC - unexpected FIFO MODE");
 					}
 					if (0 != (Data & 0x80)) {
 						if (0 != (SoundReg803 & 0x80)) {
-							ReportAbnormal(
+							ReportAbnormalID(0x0F0C,
 								"ASC - set clear FIFO again");
 						} else
 						if (1 != SoundReg801) {
 #if 0 /* happens in system 6, such as with Lunar Phantom */
-							ReportAbnormal(
+							ReportAbnormalID(0x0F0D,
 								"ASC - clear FIFO when not FIFO mode");
 #endif
 						} else
@@ -316,7 +324,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				if (WriteMem) {
 #if 0
 					if ((0 != SoundReg804) && (0 != Data)) {
-						ReportAbnormal(
+						ReportAbnormalID(0x0F0F,
 							"ASC - set FIFO IRQ STATUS when not 0");
 					}
 #endif
@@ -339,7 +347,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 #if 0
 					if (1 != SoundReg801) {
 						/* no, ok, part of normal interrupt handling */
-						ReportAbnormal(
+						ReportAbnormalID(0x0F10,
 							"ASC - read STATUS when not FIFO");
 					}
 #endif
@@ -369,7 +377,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 					/* cleared in LodeRunner */
 				} else {
 					Data = SoundReg805;
-					ReportAbnormal(
+					ReportAbnormalID(0x0F11,
 						"ASC - reading WAVE CONTROL register");
 				}
 #if ASC_dolog && 1
@@ -381,11 +389,13 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				if (WriteMem) {
 					SoundReg_Volume = Data >> 5;
 					if (0 != (Data & 0x1F)) {
-						ReportAbnormal("ASC - unexpected volume value");
+						ReportAbnormalID(0x0F12,
+							"ASC - unexpected volume value");
 					}
 				} else {
 					Data = SoundReg_Volume << 5;
-					ReportAbnormal("ASC - reading volume register");
+					ReportAbnormalID(0x0F13,
+						"ASC - reading volume register");
 				}
 #if ASC_dolog && 1
 				dbglog_AddrAccess("ASC_Access Control (VOLUME)",
@@ -396,11 +406,13 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				if (WriteMem) {
 					/* SoundReg807 = Data; */
 					if (0 != Data) {
-						ReportAbnormal("ASC - nonstandard CLOCK RATE");
+						ReportAbnormalID(0x0F14,
+							"ASC - nonstandard CLOCK RATE");
 					}
 				} else {
 					/* Data = SoundReg807; */
-					ReportAbnormal("ASC - reading CLOCK RATE");
+					ReportAbnormalID(0x0F15,
+						"ASC - reading CLOCK RATE");
 				}
 #if ASC_dolog && 1
 				dbglog_AddrAccess("ASC_Access Control (CLOCK RATE)",
@@ -409,7 +421,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				break;
 			case 0x808: /* CONTROL */
 				if (WriteMem) {
-					ReportAbnormal("ASC - write to 808");
+					ReportAbnormalID(0x0F16, "ASC - write to 808");
 				} else {
 					/* happens on boot System 7.5.5 */
 					Data = 0;
@@ -421,7 +433,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				break;
 			case 0x80A: /* ? */
 				if (WriteMem) {
-					ReportAbnormal("ASC - write to 80A");
+					ReportAbnormalID(0x0F17, "ASC - write to 80A");
 				} else {
 					/*
 						happens in system 6, Lunar Phantom,
@@ -439,7 +451,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 				} else {
 					Data = 0;
 				}
-				ReportAbnormal("ASC - unknown ASC reg");
+				ReportAbnormalID(0x0F18, "ASC - unknown ASC reg");
 #if ASC_dolog && 1
 				dbglog_AddrAccess("ASC_Access Control (?)",
 					Data, WriteMem, addr);
@@ -491,7 +503,7 @@ GLOBALFUNC ui5b ASC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 			Data, WriteMem, addr);
 #endif
 
-		ReportAbnormal("unknown ASC reg");
+		ReportAbnormalID(0x0F19, "unknown ASC reg");
 	}
 
 	return Data;
@@ -792,7 +804,8 @@ label_retry:
 	if ((1 == SoundReg801) && ASC_Playing) {
 		if (((ui4b)(ASC_FIFO_InA - ASC_FIFO_Out)) >= 0x200) {
 			if (0 != (SoundReg804 & 0x01)) {
-				ReportAbnormal("half flag A not already clear");
+				ReportAbnormalID(0x0F1A,
+					"half flag A not already clear");
 				SoundReg804 &= ~ 0x01;
 			}
 		} else {
@@ -808,7 +821,7 @@ label_retry:
 		}
 		if (((ui4b)(ASC_FIFO_InA - ASC_FIFO_Out)) >= 0x400) {
 			if (0 == (SoundReg804 & 0x02)) {
-				ReportAbnormal("full flag A not already set");
+				ReportAbnormalID(0x0F1B, "full flag A not already set");
 				SoundReg804 |= 0x02;
 			}
 		} else {
@@ -820,7 +833,8 @@ label_retry:
 		if (0 != (SoundReg802 & 2)) {
 			if (((ui4b)(ASC_FIFO_InB - ASC_FIFO_Out)) >= 0x200) {
 				if (0 != (SoundReg804 & 0x04)) {
-					ReportAbnormal("half flag B not already clear");
+					ReportAbnormalID(0x0F1C,
+						"half flag B not already clear");
 					SoundReg804 &= ~ 0x04;
 				}
 			} else {
@@ -836,7 +850,8 @@ label_retry:
 			}
 			if (((ui4b)(ASC_FIFO_InB - ASC_FIFO_Out)) >= 0x400) {
 				if (0 == (SoundReg804 & 0x08)) {
-					ReportAbnormal("full flag B not already set");
+					ReportAbnormalID(0x0F1D,
+						"full flag B not already set");
 					SoundReg804 |= 0x08;
 				}
 			} else {

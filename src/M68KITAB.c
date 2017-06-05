@@ -54,6 +54,7 @@ enum {
 	kAddrValidControl,
 	kAddrValidControlAlt,
 	kAddrValidAltMem,
+	kAddrValidDataNoCn, /* no constants (immediate data) */
 
 	kNumAddrValids
 };
@@ -64,6 +65,7 @@ enum {
 #define kAddrValidMaskControl    (1 << kAddrValidControl)
 #define kAddrValidMaskControlAlt (1 << kAddrValidControlAlt)
 #define kAddrValidMaskAltMem     (1 << kAddrValidAltMem)
+#define kAddrValidMaskDataNoCn   (1 << kAddrValidDataNoCn)
 
 #define CheckInSet(v, m) (0 != ((1 << (v)) & (m)))
 
@@ -275,7 +277,7 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			CurArgDat = r;
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
-					| kAddrValidMaskDataAlt);
+					| kAddrValidMaskDataAlt | kAddrValidMaskDataNoCn);
 			break;
 		case 1:
 			CurAMd = GetAMdRegSz(p);
@@ -288,7 +290,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
 					| kAddrValidMaskDataAlt | kAddrValidMaskControl
-					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem);
+					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem
+					| kAddrValidMaskDataNoCn);
 			break;
 		case 3:
 			switch (p->opsize) {
@@ -310,7 +313,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			CurArgDat = r + 8;
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
-					| kAddrValidMaskDataAlt | kAddrValidMaskAltMem);
+					| kAddrValidMaskDataAlt | kAddrValidMaskAltMem
+					| kAddrValidMaskDataNoCn);
 			break;
 		case 4:
 			switch (p->opsize) {
@@ -332,7 +336,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			CurArgDat = r + 8;
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
-					| kAddrValidMaskDataAlt | kAddrValidMaskAltMem);
+					| kAddrValidMaskDataAlt | kAddrValidMaskAltMem
+					| kAddrValidMaskDataNoCn);
 			break;
 		case 5:
 			switch (p->opsize) {
@@ -351,7 +356,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
 					| kAddrValidMaskDataAlt | kAddrValidMaskControl
-					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem);
+					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem
+					| kAddrValidMaskDataNoCn);
 			break;
 		case 6:
 			switch (p->opsize) {
@@ -370,7 +376,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 			IsOk = CheckInSet(v,
 				kAddrValidMaskAny | kAddrValidMaskData
 					| kAddrValidMaskDataAlt | kAddrValidMaskControl
-					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem);
+					| kAddrValidMaskControlAlt | kAddrValidMaskAltMem
+					| kAddrValidMaskDataNoCn);
 			break;
 		case 7:
 			switch (r) {
@@ -392,7 +399,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 							| kAddrValidMaskDataAlt
 							| kAddrValidMaskControl
 							| kAddrValidMaskControlAlt
-							| kAddrValidMaskAltMem);
+							| kAddrValidMaskAltMem
+							| kAddrValidMaskDataNoCn);
 					break;
 				case 1:
 					switch (p->opsize) {
@@ -412,7 +420,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 							| kAddrValidMaskDataAlt
 							| kAddrValidMaskControl
 							| kAddrValidMaskControlAlt
-							| kAddrValidMaskAltMem);
+							| kAddrValidMaskAltMem
+							| kAddrValidMaskDataNoCn);
 					break;
 				case 2:
 					switch (p->opsize) {
@@ -429,7 +438,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 					}
 					IsOk = CheckInSet(v,
 						kAddrValidMaskAny | kAddrValidMaskData
-							| kAddrValidMaskControl);
+							| kAddrValidMaskControl
+							| kAddrValidMaskDataNoCn);
 					break;
 				case 3:
 					switch (p->opsize) {
@@ -446,7 +456,8 @@ LOCALFUNC blnr CheckValidAddrMode(WorkR *p,
 					}
 					IsOk = CheckInSet(v,
 						kAddrValidMaskAny | kAddrValidMaskData
-							| kAddrValidMaskControl);
+							| kAddrValidMaskControl
+							| kAddrValidMaskDataNoCn);
 					break;
 				case 4:
 					switch (p->opsize) {
@@ -718,17 +729,15 @@ LOCALPROCUSEDONCE DeCode0(WorkR *p)
 				SetDcoArgFields(p, trueblnr, kAMdImmedB, 0);
 				p->MainClass = kIKindBTstB + b76(p);
 				if (b76(p) == 0) { /* BTst */
-					if ((mode(p) == 7) && (reg(p) == 4)) {
-						p->MainClass = kIKindIllegal;
-					} else {
-						if (CheckDataAddrMode(p)) {
+					if (CheckValidAddrMode(p,
+						mode(p), reg(p), kAddrValidDataNoCn, falseblnr))
+					{
 #if WantCycByPriOp
-							p->Cycles =
-								(8 * kCycleScale + 2 * RdAvgXtraCyc);
-							p->Cycles +=
-								OpEACalcCyc(p, mode(p), reg(p));
+						p->Cycles =
+							(8 * kCycleScale + 2 * RdAvgXtraCyc);
+						p->Cycles +=
+							OpEACalcCyc(p, mode(p), reg(p));
 #endif
-						}
 					}
 				} else {
 					if (CheckDataAltAddrMode(p)) {
@@ -807,7 +816,7 @@ LOCALPROCUSEDONCE DeCode0(WorkR *p)
 			FindOpSizeFromb76(p);
 			if (CheckValidAddrMode(p, 7, 4, kAddrValidAny, trueblnr))
 			if (CheckValidAddrMode(p,
-				mode(p), reg(p), kAddrValidDataAlt, falseblnr))
+				mode(p), reg(p), kAddrValidDataNoCn, falseblnr))
 			{
 #if WantCycByPriOp
 				if (0 == mode(p)) {

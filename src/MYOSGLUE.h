@@ -36,7 +36,7 @@
 
 EXPORTOSGLUPROC WarnMsgCorruptedROM(void);
 EXPORTOSGLUPROC WarnMsgUnsupportedROM(void);
-EXPORTOSGLUPROC WarnMsgAbnormal(void);
+EXPORTOSGLUPROC WarnMsgAbnormalID(ui4r id);
 
 #if dbglog_HAVE
 EXPORTOSGLUPROC dbglog_writeCStr(char *s);

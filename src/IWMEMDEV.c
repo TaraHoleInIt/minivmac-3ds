@@ -39,6 +39,10 @@
 
 #include "IWMEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0603 - 0x06FF
+*/
+
 #define kph0L     0x00 /* CA0 off (0) */
 #define kph0H     0x01 /* CA0 on (1) */
 #define kph1L     0x02 /* CA1 off (0) */
@@ -103,7 +107,7 @@ LOCALFUNC ui3b IWM_Read_Reg(void)
 #if (CurEmMd >= kEmMd_SE) && (CurEmMd <= kEmMd_IIx)
 			/* don't report */
 #else
-			ReportAbnormal("IWM Data Read");
+			ReportAbnormalID(0x0601, "IWM Data Read");
 #endif
 #ifdef _IWM_Debug
 			printf("IWM Data Read\n");
@@ -117,7 +121,7 @@ LOCALFUNC ui3b IWM_Read_Reg(void)
 			return IWM.Status;
 			break;
 		case 2 :
-			ReportAbnormal("IWM Handshake Read");
+			ReportAbnormalID(0x0602, "IWM Handshake Read");
 #ifdef _IWM_Debug
 			printf("IWM Handshake Read\n");
 #endif

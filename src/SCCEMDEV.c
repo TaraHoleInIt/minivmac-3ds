@@ -48,6 +48,10 @@
 
 #include "SCCEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0721, 0x0722, 0x074D - 0x07FF
+*/
+
 #define SCC_dolog (dbglog_HAVE && 0)
 #define SCC_TrackMore 0
 
@@ -614,7 +618,7 @@ LOCALPROC process_transmit(void)
 			dbglog_WriteNote("SCC LLAP packet in process_transmit");
 #endif
 			if (CTSpacketPending) {
-				ReportAbnormal(
+				ReportAbnormalID(0x0701,
 					"Already CTSpacketPending in process_transmit");
 			} else {
 				CTSpacketRxDA = LT_TxBuffer[1]; /* rx da = tx sa */
@@ -665,13 +669,13 @@ LOCALPROC GetCTSpacket(void)
 LOCALPROC rx_complete(void)
 {
 	if (SCC.a[1].EndOfFrame) {
-		ReportAbnormal("EndOfFrame true in rx_complete");
+		ReportAbnormalID(0x0702, "EndOfFrame true in rx_complete");
 	}
 	if (! SCC.a[1].RxChrAvail) {
-		ReportAbnormal("RxChrAvail false in rx_complete");
+		ReportAbnormalID(0x0703, "RxChrAvail false in rx_complete");
 	}
 	if (SCC.a[1].SyncHunt) {
-		ReportAbnormal("SyncHunt true in rx_complete");
+		ReportAbnormalID(0x0704, "SyncHunt true in rx_complete");
 	}
 
 	/*
@@ -1009,7 +1013,7 @@ LOCALFUNC ui3r SCC_GetRR2(int chan)
 			value = value
 				& (Bit0 | Bit1 | Bit2 | Bit3 | Bit7);
 
-			ReportAbnormal("Status high/low");
+			ReportAbnormalID(0x0705, "Status high/low");
 			switch (SCC.SCC_Interrupt_Type) {
 				case SCC_A_Rx:
 					value |= Bit4 | Bit5;
@@ -1104,7 +1108,7 @@ LOCALFUNC ui3r SCC_GetRR3(int chan)
 	ui3r value = 0;
 
 	UnusedParam(chan);
-	ReportAbnormal("RR 3");
+	ReportAbnormalID(0x0706, "RR 3");
 
 #if 0
 	if (chan == 0) {
@@ -1144,7 +1148,7 @@ LOCALFUNC ui3r SCC_GetRR8(int chan)
 #if (CurEmMd >= kEmMd_SE) && (CurEmMd <= kEmMd_IIx)
 		/* don't report */
 #else
-		ReportAbnormal("read rr8 when RxEnable");
+		ReportAbnormalID(0x0707, "read rr8 when RxEnable");
 #endif
 
 		/* Input 1 byte from Modem Port/Printer into Data */
@@ -1177,7 +1181,7 @@ LOCALFUNC ui3r SCC_GetRR12(int chan)
 #if ! SCC_TrackMore
 	UnusedParam(chan);
 #endif
-	ReportAbnormal("RR 12");
+	ReportAbnormalID(0x0708, "RR 12");
 
 #if SCC_TrackMore /* don't care about Baud */
 	value = SCC.a[chan].BaudLo;
@@ -1193,7 +1197,7 @@ LOCALFUNC ui3r SCC_GetRR13(int chan)
 #if ! SCC_TrackMore
 	UnusedParam(chan);
 #endif
-	ReportAbnormal("RR 13");
+	ReportAbnormalID(0x0709, "RR 13");
 
 #if SCC_TrackMore /* don't care about Baud */
 	value = SCC.a[chan].BaudHi;
@@ -1207,7 +1211,7 @@ LOCALFUNC ui3r SCC_GetRR15(int chan)
 	ui3r value = 0;
 
 	UnusedParam(chan);
-	ReportAbnormal("RR 15");
+	ReportAbnormalID(0x070A, "RR 15");
 
 #if 0
 	value = 0
@@ -1265,7 +1269,7 @@ LOCALPROC SCC_PutWR0(ui3r Data, int chan)
 {
 	switch ((Data >> 6) & 3) {
 		case 1:
-			ReportAbnormal("Reset Rx CRC Checker");
+			ReportAbnormalID(0x070B, "Reset Rx CRC Checker");
 			break;
 		case 2:
 #if SCC_dolog
@@ -1331,7 +1335,7 @@ LOCALPROC SCC_PutWR0(ui3r Data, int chan)
 #endif
 			break;
 		case 3:
-			ReportAbnormal("Send Abort (SDLC)");
+			ReportAbnormalID(0x070C, "Send Abort (SDLC)");
 #if EmLocalTalk
 			SCC.a[chan].TxBufferEmpty = trueblnr;
 #endif
@@ -1477,7 +1481,7 @@ LOCALPROC SCC_PutWR1(ui3r Data, int chan)
 					/* happens in Print to ImageWriter */
 					break;
 				case 3:
-					ReportAbnormal(
+					ReportAbnormalID(0x070D,
 						"Rx INT on special condition only");
 					break;
 			}
@@ -1554,16 +1558,16 @@ LOCALPROC SCC_PutWR2(ui3r Data, int chan)
 		SCC.InterruptVector = Data;
 	}
 	if ((Data & Bit0) != 0) { /* interrupt vector 0 */
-		ReportAbnormal("interrupt vector 0");
+		ReportAbnormalID(0x070E, "interrupt vector 0");
 	}
 	if ((Data & Bit1) != 0) { /* interrupt vector 1 */
-		ReportAbnormal("interrupt vector 1");
+		ReportAbnormalID(0x070F, "interrupt vector 1");
 	}
 	if ((Data & Bit2) != 0) { /* interrupt vector 2 */
-		ReportAbnormal("interrupt vector 2");
+		ReportAbnormalID(0x0710, "interrupt vector 2");
 	}
 	if ((Data & Bit3) != 0) { /* interrupt vector 3 */
-		ReportAbnormal("interrupt vector 3");
+		ReportAbnormalID(0x0711, "interrupt vector 3");
 	}
 	if ((Data & Bit4) != 0) { /* interrupt vector 4 */
 		/* happens on boot with appletalk on */
@@ -1572,10 +1576,10 @@ LOCALPROC SCC_PutWR2(ui3r Data, int chan)
 		/* happens on boot with appletalk on */
 	}
 	if ((Data & Bit6) != 0) { /* interrupt vector 6 */
-		ReportAbnormal("interrupt vector 6");
+		ReportAbnormalID(0x0712, "interrupt vector 6");
 	}
 	if ((Data & Bit7) != 0) { /* interrupt vector 7 */
-		ReportAbnormal("interrupt vector 7");
+		ReportAbnormalID(0x0713, "interrupt vector 7");
 	}
 }
 
@@ -1623,7 +1627,7 @@ LOCALPROC SCC_PutWR3(ui3r Data, int chan)
 			use DCD input as receiver enable,
 			and set RTS output when transmit buffer empty
 		*/
-		ReportAbnormal("Auto Enables");
+		ReportAbnormalID(0x0714, "Auto Enables");
 	}
 
 	if ((Data & Bit4) != 0) { /* Enter Hunt Mode */
@@ -1803,7 +1807,7 @@ LOCALPROC SCC_PutWR4(ui3r Data, int chan)
 					/* happens on boot always */
 					break;
 				case 1:
-					ReportAbnormal("16 bit sync char");
+					ReportAbnormalID(0x0715, "16 bit sync char");
 					break;
 				case 2:
 #if SCC_dolog
@@ -1815,7 +1819,7 @@ LOCALPROC SCC_PutWR4(ui3r Data, int chan)
 #endif
 					break;
 				case 3:
-					ReportAbnormal("External sync mode");
+					ReportAbnormalID(0x0716, "External sync mode");
 					break;
 			}
 		}
@@ -1844,10 +1848,10 @@ LOCALPROC SCC_PutWR4(ui3r Data, int chan)
 					/* happens on boot always */
 					break;
 				case 2:
-					ReportAbnormal("Clock Rate <- X32");
+					ReportAbnormalID(0x0717, "Clock Rate <- X32");
 					break;
 				case 3:
-					ReportAbnormal("Clock Rate <- X64");
+					ReportAbnormalID(0x0718, "Clock Rate <- X64");
 					break;
 			}
 		}
@@ -1894,7 +1898,7 @@ LOCALPROC SCC_PutWR5(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit2) != 0) { /* SDLC/CRC-16 */
-		ReportAbnormal("SDLC/CRC-16");
+		ReportAbnormalID(0x0719, "SDLC/CRC-16");
 	}
 
 	{
@@ -1942,13 +1946,13 @@ LOCALPROC SCC_PutWR5(ui3r Data, int chan)
 
 			switch (NewTBitsPerChar) {
 				case 0:
-					ReportAbnormal("Tx Bits/Character <- 5");
+					ReportAbnormalID(0x071A, "Tx Bits/Character <- 5");
 					break;
 				case 1:
-					ReportAbnormal("Tx Bits/Character <- 7");
+					ReportAbnormalID(0x071B, "Tx Bits/Character <- 7");
 					break;
 				case 2:
-					ReportAbnormal("Tx Bits/Character <- 6");
+					ReportAbnormalID(0x071C, "Tx Bits/Character <- 6");
 					break;
 				case 3:
 #if SCC_dolog
@@ -2021,11 +2025,11 @@ LOCALPROC SCC_PutWR7(ui3r Data, int chan)
 #if SCC_TrackMore
 	if (2 == SCC.a[chan].SyncMode) {
 		if (0x7E != Data) {
-			ReportAbnormal(
+			ReportAbnormalID(0x071D,
 				"unexpect flag character for SDLC");
 		}
 	} else {
-		ReportAbnormal("WR7 and not SDLC");
+		ReportAbnormalID(0x071E, "WR7 and not SDLC");
 	}
 #endif
 }
@@ -2069,7 +2073,7 @@ LOCALPROC SCC_PutWR8(ui3r Data, int chan)
 		SCC.a[chan].TxIP = trueblnr;
 		CheckSCCInterruptFlag();
 	} else {
-		ReportAbnormal(
+		ReportAbnormalID(0x071F,
 			"write when Transmit Buffer not Enabled");
 #if 0 /* TxBufferEmpty always true */
 		SCC.a[chan].TxBufferEmpty = falseblnr;
@@ -2088,7 +2092,7 @@ LOCALPROC SCC_PutWR9(ui3r Data, int chan)
 	UnusedParam(chan);
 
 	if ((Data & Bit0) != 0) { /* VIS */
-		ReportAbnormal("VIS");
+		ReportAbnormalID(0x0720, "VIS");
 	}
 
 #if SCC_TrackMore
@@ -2106,7 +2110,7 @@ LOCALPROC SCC_PutWR9(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit2) != 0) { /* DLC */
-		ReportAbnormal("DLC");
+		ReportAbnormalID(0x0723, "DLC");
 	}
 
 	{
@@ -2126,11 +2130,11 @@ LOCALPROC SCC_PutWR9(ui3r Data, int chan)
 	SCC.StatusHiLo = (Data & Bit4) != 0;
 #else
 	if ((Data & Bit4) != 0) { /* Status high/low */
-		ReportAbnormal("Status high/low");
+		ReportAbnormalID(0x0724, "Status high/low");
 	}
 #endif
 	if ((Data & Bit5) != 0) { /* WR9 b5 should be 0 */
-		ReportAbnormal("WR9 b5 should be 0");
+		ReportAbnormalID(0x0725, "WR9 b5 should be 0");
 	}
 
 	switch ((Data >> 6) & 3) {
@@ -2157,7 +2161,7 @@ LOCALPROC SCC_PutWR9(ui3r Data, int chan)
 #if (CurEmMd >= kEmMd_SE) && (CurEmMd <= kEmMd_IIx)
 			/* don't report */
 #else
-			ReportAbnormal("SCC_Reset");
+			ReportAbnormalID(0x0726, "SCC_Reset");
 #endif
 			SCC_Reset();
 			CheckSCCInterruptFlag();
@@ -2179,19 +2183,19 @@ LOCALPROC SCC_PutWR10(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit0) != 0) { /* 6 bit/8 bit sync */
-		ReportAbnormal("6 bit/8 bit sync");
+		ReportAbnormalID(0x0727, "6 bit/8 bit sync");
 	}
 	if ((Data & Bit1) != 0) { /* loop mode */
-		ReportAbnormal("loop mode");
+		ReportAbnormalID(0x0728, "loop mode");
 	}
 	if ((Data & Bit2) != 0) { /* abort/flag on underrun */
-		ReportAbnormal("abort/flag on underrun");
+		ReportAbnormalID(0x0729, "abort/flag on underrun");
 	}
 	if ((Data & Bit3) != 0) { /* mark/flag idle */
-		ReportAbnormal("mark/flag idle");
+		ReportAbnormalID(0x072A, "mark/flag idle");
 	}
 	if ((Data & Bit4) != 0) { /* go active on poll */
-		ReportAbnormal("go active on poll");
+		ReportAbnormalID(0x072B, "go active on poll");
 	}
 
 #if SCC_TrackMore
@@ -2210,10 +2214,10 @@ LOCALPROC SCC_PutWR10(ui3r Data, int chan)
 					/* happens in Print to ImageWriter */
 					break;
 				case 1:
-					ReportAbnormal("Data Encoding <- NRZI");
+					ReportAbnormalID(0x072C, "Data Encoding <- NRZI");
 					break;
 				case 2:
-					ReportAbnormal("Data Encoding <- FM1");
+					ReportAbnormalID(0x072D, "Data Encoding <- FM1");
 					break;
 				case 3:
 #if SCC_dolog
@@ -2272,14 +2276,15 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 					/* happens in MacCheck */
 					break;
 				case 1:
-					ReportAbnormal("TRxC OUT = transmit clock");
+					ReportAbnormalID(0x072E,
+						"TRxC OUT = transmit clock");
 					break;
 				case 2:
-					ReportAbnormal(
+					ReportAbnormalID(0x072F,
 						"TRxC OUT = BR generator output");
 					break;
 				case 3:
-					ReportAbnormal("TRxC OUT = dpll output");
+					ReportAbnormalID(0x0730, "TRxC OUT = dpll output");
 					break;
 			}
 		}
@@ -2287,7 +2292,7 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit2) != 0) {
-		ReportAbnormal("TRxC O/I");
+		ReportAbnormalID(0x0731, "TRxC O/I");
 	}
 
 #if SCC_TrackMore
@@ -2298,7 +2303,8 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 
 			switch (NewTClkSlct) {
 				case 0:
-					ReportAbnormal("transmit clock = RTxC pin");
+					ReportAbnormalID(0x0732,
+						"transmit clock = RTxC pin");
 					break;
 				case 1:
 #if SCC_dolog
@@ -2317,7 +2323,7 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 					/* happens in MacCheck */
 					break;
 				case 3:
-					ReportAbnormal(
+					ReportAbnormalID(0x0733,
 						"transmit clock = dpll output");
 					break;
 			}
@@ -2333,7 +2339,8 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 
 			switch (NewRClkSlct) {
 				case 0:
-					ReportAbnormal("receive clock = RTxC pin");
+					ReportAbnormalID(0x0734,
+						"receive clock = RTxC pin");
 					break;
 				case 1:
 #if SCC_dolog
@@ -2363,7 +2370,7 @@ LOCALPROC SCC_PutWR11(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit7) != 0) {
-		ReportAbnormal("RTxC XTAL/NO XTAL");
+		ReportAbnormalID(0x0735, "RTxC XTAL/NO XTAL");
 	}
 }
 
@@ -2460,16 +2467,16 @@ LOCALPROC SCC_PutWR14(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit1) != 0) { /* BR generator source */
-		ReportAbnormal("BR generator source");
+		ReportAbnormalID(0x0736, "BR generator source");
 	}
 	if ((Data & Bit2) != 0) { /* DTR/request function */
-		ReportAbnormal("DTR/request function");
+		ReportAbnormalID(0x0737, "DTR/request function");
 	}
 	if ((Data & Bit3) != 0) { /* auto echo */
-		ReportAbnormal("auto echo");
+		ReportAbnormalID(0x0738, "auto echo");
 	}
 	if ((Data & Bit4) != 0) { /* local loopback */
-		ReportAbnormal("local loopback");
+		ReportAbnormalID(0x0739, "local loopback");
 	}
 
 	switch ((Data >> 5) & 7) {
@@ -2491,7 +2498,7 @@ LOCALPROC SCC_PutWR14(ui3r Data, int chan)
 			*/
 			break;
 		case 3:
-			ReportAbnormal("disable dpll");
+			ReportAbnormalID(0x073A, "disable dpll");
 			/*
 				should clear Bit 6 and Bit 7 of RR[10], but
 				since these are never set, don't need
@@ -2499,10 +2506,10 @@ LOCALPROC SCC_PutWR14(ui3r Data, int chan)
 			*/
 			break;
 		case 4:
-			ReportAbnormal("set source = br generator");
+			ReportAbnormalID(0x073B, "set source = br generator");
 			break;
 		case 5:
-			ReportAbnormal("set source = RTxC");
+			ReportAbnormalID(0x073C, "set source = RTxC");
 			break;
 		case 6:
 #if SCC_dolog
@@ -2511,7 +2518,7 @@ LOCALPROC SCC_PutWR14(ui3r Data, int chan)
 			/* happens on boot with appletalk on */
 			break;
 		case 7:
-			ReportAbnormal("set NRZI mode");
+			ReportAbnormalID(0x073D, "set NRZI mode");
 			break;
 		case 0: /* No Reset */
 		default:
@@ -2529,13 +2536,13 @@ LOCALPROC SCC_PutWR15(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit0) != 0) { /* WR15 b0 should be 0 */
-		ReportAbnormal("WR15 b0 should be 0");
+		ReportAbnormalID(0x073E, "WR15 b0 should be 0");
 	}
 	if ((Data & Bit1) != 0) { /* zero count IE */
-		ReportAbnormal("zero count IE");
+		ReportAbnormalID(0x073F, "zero count IE");
 	}
 	if ((Data & Bit2) != 0) { /* WR15 b2 should be 0 */
-		ReportAbnormal("WR15 b2 should be 0");
+		ReportAbnormalID(0x0740, "WR15 b2 should be 0");
 	}
 
 #if 0 /* don't care about DCD_IE, always true */
@@ -2545,7 +2552,7 @@ LOCALPROC SCC_PutWR15(ui3r Data, int chan)
 #if (CurEmMd >= kEmMd_SE) && (CurEmMd <= kEmMd_IIx)
 		/* don't report */
 #else
-		ReportAbnormal("not DCD IE");
+		ReportAbnormalID(0x0741, "not DCD IE");
 #endif
 	}
 #endif
@@ -2555,7 +2562,7 @@ LOCALPROC SCC_PutWR15(ui3r Data, int chan)
 #else
 	if ((Data & Bit4) != 0) {
 		/* SYNC/HUNT IE */
-		ReportAbnormal("SYNC/HUNT IE");
+		ReportAbnormalID(0x0742, "SYNC/HUNT IE");
 	}
 #endif
 
@@ -2575,7 +2582,7 @@ LOCALPROC SCC_PutWR15(ui3r Data, int chan)
 #endif
 
 	if ((Data & Bit6) != 0) { /* Tx underrun/EOM IE */
-		ReportAbnormal("Tx underrun/EOM IE");
+		ReportAbnormalID(0x0743, "Tx underrun/EOM IE");
 	}
 
 #if SCC_TrackMore
@@ -2612,33 +2619,33 @@ LOCALFUNC ui3r SCC_GetReg(int chan, ui3r SCC_Reg)
 			value = SCC_GetRR3(chan);
 			break;
 		case 4:
-			ReportAbnormal("RR 4"); /* same as RR0 */
+			ReportAbnormalID(0x0744, "RR 4"); /* same as RR0 */
 			value = SCC_GetRR0(chan);
 			break;
 		case 5:
-			ReportAbnormal("RR 5"); /* same as RR1 */
+			ReportAbnormalID(0x0745, "RR 5"); /* same as RR1 */
 			value = SCC_GetRR1(chan);
 			break;
 		case 6:
-			ReportAbnormal("RR 6"); /* same as RR2 */
+			ReportAbnormalID(0x0746, "RR 6"); /* same as RR2 */
 			value = SCC_GetRR2(chan);
 			break;
 		case 7:
-			ReportAbnormal("RR 7"); /* same as RR3 */
+			ReportAbnormalID(0x0747, "RR 7"); /* same as RR3 */
 			value = SCC_GetRR3(chan);
 			break;
 		case 8:
 			value = SCC_GetRR8(chan);
 			break;
 		case 9:
-			ReportAbnormal("RR 9"); /* same as RR13 */
+			ReportAbnormalID(0x0748, "RR 9"); /* same as RR13 */
 			value = SCC_GetRR13(chan);
 			break;
 		case 10:
 			value = SCC_GetRR10(chan);
 			break;
 		case 11:
-			ReportAbnormal("RR 11"); /* same as RR15 */
+			ReportAbnormalID(0x0749, "RR 11"); /* same as RR15 */
 			value = SCC_GetRR15(chan);
 			break;
 		case 12:
@@ -2648,14 +2655,15 @@ LOCALFUNC ui3r SCC_GetReg(int chan, ui3r SCC_Reg)
 			value = SCC_GetRR13(chan);
 			break;
 		case 14:
-			ReportAbnormal("RR 14");
+			ReportAbnormalID(0x074A, "RR 14");
 			value = 0;
 			break;
 		case 15:
 			value = SCC_GetRR15(chan);
 			break;
 		default:
-			ReportAbnormal("unexpected SCC_Reg in SCC_GetReg");
+			ReportAbnormalID(0x074B,
+				"unexpected SCC_Reg in SCC_GetReg");
 			value = 0;
 			break;
 	}
@@ -2741,7 +2749,8 @@ LOCALPROC SCC_PutReg(ui3r Data, int chan, ui3r SCC_Reg)
 			SCC_PutWR15(Data, chan);
 			break;
 		default:
-			ReportAbnormal("unexpected SCC_Reg in SCC_PutReg");
+			ReportAbnormalID(0x074C,
+				"unexpected SCC_Reg in SCC_PutReg");
 			break;
 	}
 

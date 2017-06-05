@@ -81,6 +81,10 @@
 */
 
 
+/*
+	ReportAbnormalID unused 0x0204 - 0x02FF
+*/
+
 
 /* soft float stuff */
 
@@ -6172,12 +6176,14 @@ LOCALPROC myfp_SetFPCR(ui5r v)
 			floatx80_rounding_precision = 64;
 			break;
 		case 3:
-			ReportAbnormal("Bad rounding precision in myfp_SetFPCR");
+			ReportAbnormalID(0x0201,
+				"Bad rounding precision in myfp_SetFPCR");
 			floatx80_rounding_precision = 80;
 			break;
 	}
 	if (0 != (v & 0xF)) {
-		ReportAbnormal("Reserved bits not zero in myfp_SetFPCR");
+		ReportAbnormalID(0x0202,
+			"Reserved bits not zero in myfp_SetFPCR");
 	}
 }
 
@@ -6207,7 +6213,8 @@ LOCALFUNC ui5r myfp_GetFPCR(void)
 	} else if (64 == floatx80_rounding_precision) {
 		v |= (2 << 6);
 	} else {
-		ReportAbnormal("Bad rounding precision in myfp_GetFPCR");
+		ReportAbnormalID(0x0203,
+			"Bad rounding precision in myfp_GetFPCR");
 	}
 
 	return v;

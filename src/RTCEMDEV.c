@@ -39,6 +39,10 @@
 
 #define HaveXPRAM (CurEmMd >= kEmMd_Plus)
 
+/*
+	ReportAbnormalID unused 0x0805 - 0x08FF
+*/
+
 #if HaveXPRAM
 #define PARAMRAMSize 256
 #else
@@ -334,11 +338,11 @@ LOCALFUNC ui3b RTC_Access_Reg(ui3b Data, blnr WriteReg, ui3b TheCmd)
 					RTC.WrProtect = (Data & 0x80) != 0;
 					break; /* Write_Protect Register */
 				default :
-					ReportAbnormal("Write RTC Reg unknown");
+					ReportAbnormalID(0x0801, "Write RTC Reg unknown");
 					break;
 			}
 		} else {
-			ReportAbnormal("Read RTC Reg unknown");
+			ReportAbnormalID(0x0802, "Read RTC Reg unknown");
 		}
 	} else {
 		Data = RTC_Access_PRAM_Reg(Data, WriteReg,
@@ -415,7 +419,7 @@ GLOBALPROC RTCunEnabled_ChangeNtfy(void)
 #ifdef _RTC_Debug
 			printf("aborting, %2x\n", RTC.Counter);
 #endif
-			ReportAbnormal("RTC aborting");
+			ReportAbnormalID(0x0803, "RTC aborting");
 		}
 		RTC.Mode = 0;
 		RTC.DataOut = 0;
@@ -466,7 +470,8 @@ GLOBALPROC RTCdataLine_ChangeNtfy(void)
 				correct.
 			*/
 		} else {
-			ReportAbnormal("write RTC Data unexpected direction");
+			ReportAbnormalID(0x0804,
+				"write RTC Data unexpected direction");
 		}
 	}
 #endif

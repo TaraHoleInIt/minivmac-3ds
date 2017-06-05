@@ -62,6 +62,10 @@
 
 #include "PROGMAIN.h"
 
+/*
+	ReportAbnormalID unused 0x1002 - 0x10FF
+*/
+
 LOCALPROC EmulatedHardwareZap(void)
 {
 	Memory_Reset();
@@ -287,7 +291,7 @@ LOCALPROC ICT_DoTask(int taskid)
 			break;
 #endif
 		default:
-			ReportAbnormal("unknown taskid in ICT_DoTask");
+			ReportAbnormalID(0x1001, "unknown taskid in ICT_DoTask");
 			break;
 	}
 }

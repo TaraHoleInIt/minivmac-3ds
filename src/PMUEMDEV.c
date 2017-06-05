@@ -28,6 +28,10 @@
 
 #include "PMUEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0E0E - 0x0EFF
+*/
+
 enum {
 	kPMUStateReadyForCommand,
 	kPMUStateRecievingLength,
@@ -72,7 +76,7 @@ LOCALPROC PmuCheckCommandOp(void)
 						PMU_p = PMU_BuffA;
 						PMU_rem = 2;
 					} else {
-						ReportAbnormal(
+						ReportAbnormalID(0x0E01,
 							"PMU_BuffL too small for kPMUxPramWrite");
 					}
 				} else if (2 == PMU_i) {
@@ -82,10 +86,12 @@ LOCALPROC PmuCheckCommandOp(void)
 						PMU_p = &PARAMRAM[PMU_BuffA[0]];
 						PMU_rem = PMU_BuffA[1];
 					} else {
-						ReportAbnormal("bad range for kPMUxPramWrite");
+						ReportAbnormalID(0x0E02,
+							"bad range for kPMUxPramWrite");
 					}
 				} else {
-					ReportAbnormal("Wrong PMU_i for kPMUpramWrite");
+					ReportAbnormalID(0x0E03,
+						"Wrong PMU_i for kPMUpramWrite");
 				}
 			} else if (kPMUStateRecievedCommand == PMUState) {
 				/* already done */
@@ -100,7 +106,8 @@ LOCALPROC PmuCheckCommandOp(void)
 		case 0x21: /* kPMUpMgrADBoff - turn ADB auto-poll off */
 			if (kPMUStateRecievedCommand == PMUState) {
 				if (0 != PMU_BuffL) {
-					ReportAbnormal("kPMUpMgrADBoff nonzero length");
+					ReportAbnormalID(0x0E04,
+						"kPMUpMgrADBoff nonzero length");
 				}
 			}
 			break;
@@ -149,7 +156,8 @@ LOCALPROC PmuCheckCommandOp(void)
 					PMU_rem = PMU_BuffA[1];
 					PmuStartSendResult(0, PMU_rem);
 				} else {
-					ReportAbnormal("Unknown kPMUxPramRead op");
+					ReportAbnormalID(0x0E05,
+						"Unknown kPMUxPramRead op");
 				}
 			}
 			break;
@@ -163,7 +171,7 @@ LOCALPROC PmuCheckCommandOp(void)
 					PMU_BuffA[3] = 0;
 					PmuStartSendResult(0, 4);
 				} else {
-					ReportAbnormal("Unknown kPMUtimeRead op");
+					ReportAbnormalID(0x0E06, "Unknown kPMUtimeRead op");
 				}
 			}
 			break;
@@ -176,7 +184,8 @@ LOCALPROC PmuCheckCommandOp(void)
 				if (20 == PMU_BuffL) {
 					/* done */
 				} else {
-					ReportAbnormal("Unknown kPMUpramWrite op");
+					ReportAbnormalID(0x0E07,
+						"Unknown kPMUpramWrite op");
 				}
 			} else if (kPMUStateRecievingBuffer == PMUState) {
 				if (20 == PMU_BuffL) {
@@ -187,7 +196,8 @@ LOCALPROC PmuCheckCommandOp(void)
 						PMU_p = &PARAMRAM[8];
 						PMU_rem = 4;
 					} else {
-						ReportAbnormal("Wrong PMU_i for kPMUpramWrite");
+						ReportAbnormalID(0x0E08,
+							"Wrong PMU_i for kPMUpramWrite");
 					}
 				}
 			}
@@ -201,7 +211,7 @@ LOCALPROC PmuCheckCommandOp(void)
 				if (0 == PMU_BuffL) {
 					PmuStartSendResult(0, 20);
 				} else {
-					ReportAbnormal("Unknown kPMUpramRead op");
+					ReportAbnormalID(0x0E09, "Unknown kPMUpramRead op");
 				}
 			} else if (kPMUStateSendBuffer == PMUState) {
 #if 0
@@ -220,13 +230,14 @@ LOCALPROC PmuCheckCommandOp(void)
 					PMU_p = &PARAMRAM[8];
 					PMU_rem = 4;
 				} else {
-					ReportAbnormal("Wrong PMU_i for kPMUpramRead");
+					ReportAbnormalID(0x0E0A,
+						"Wrong PMU_i for kPMUpramRead");
 				}
 			}
 			break;
 		default:
 			if (kPMUStateRecievedCommand == PMUState) {
-				ReportAbnormal("Unknown PMU op");
+				ReportAbnormalID(0x0E0B, "Unknown PMU op");
 #if dbglog_HAVE
 				dbglog_writeCStr("Unknown PMU op ");
 				dbglog_writeHex(PMU_CurCommand);
@@ -329,7 +340,8 @@ GLOBALPROC PmuToReady_ChangeNtfy(void)
 {
 	if (PMU_Sending) {
 		PMU_Sending = falseblnr;
-		ReportAbnormal("PmuToReady_ChangeNtfy while PMU_Sending");
+		ReportAbnormalID(0x0E0C,
+			"PmuToReady_ChangeNtfy while PMU_Sending");
 		PmuFromReady = 0;
 	}
 	switch (PMUState) {
@@ -369,7 +381,7 @@ GLOBALPROC PmuToReady_ChangeNtfy(void)
 				}
 				if (nullpr == PMU_p) {
 					/* mini vmac bug if ever happens */
-					ReportAbnormal(
+					ReportAbnormalID(0x0E0D,
 						"PMU_p null while kPMUStateRecievingBuffer");
 				}
 				*PMU_p++ = v;

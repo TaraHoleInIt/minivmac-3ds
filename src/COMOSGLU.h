@@ -1175,6 +1175,7 @@ LOCALPROC MyEvtQTryRecoverFromFull(void)
 
 LOCALVAR char *SavedBriefMsg = nullpr;
 LOCALVAR char *SavedLongMsg;
+LOCALVAR ui4r SavedIDMsg = 0;
 LOCALVAR blnr SavedFatalMsg;
 
 LOCALPROC MacMsg(char *briefMsg, char *longMsg, blnr fatal)
@@ -1202,8 +1203,17 @@ GLOBALOSGLUPROC WarnMsgUnsupportedROM(void)
 		kStrUnsupportedROMMessage, falseblnr);
 }
 
-GLOBALOSGLUPROC WarnMsgAbnormal(void)
+GLOBALOSGLUPROC WarnMsgAbnormalID(ui4r id)
 {
 	MacMsg(kStrReportAbnormalTitle,
 		kStrReportAbnormalMessage, falseblnr);
+
+	if (0 != SavedIDMsg) {
+		/*
+			ignore the new message, only display the
+			first error.
+		*/
+	} else {
+		SavedIDMsg = id;
+	}
 }

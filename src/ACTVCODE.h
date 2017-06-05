@@ -295,27 +295,6 @@ LOCALPROC DrawActvCodeMode(void)
 }
 
 #if UseActvFile
-LOCALPROC ClStrAppendHexNib(int *L0, ui3b *r, ui3r v)
-{
-	if (v < 10) {
-		ClStrAppendChar(L0, r, kCellDigit0 + v);
-	} else {
-		ClStrAppendChar(L0, r, kCellUpA + (v - 10));
-	}
-}
-
-LOCALPROC ClStrAppendHexByte(int *L0, ui3b *r, ui3r v)
-{
-	ClStrAppendHexNib(L0, r, (v >> 4) & 0x0F);
-	ClStrAppendHexNib(L0, r, v & 0x0F);
-}
-
-LOCALPROC ClStrAppendHexWord(int *L0, ui3b *r, ui4r v)
-{
-	ClStrAppendHexByte(L0, r, (v >> 8) & 0xFF);
-	ClStrAppendHexByte(L0, r, v & 0xFF);
-}
-
 LOCALPROC ClStrAppendHexLong(int *L0, ui3b *r, ui5r v)
 {
 	ClStrAppendHexWord(L0, r, (v >> 16) & 0xFFFF);

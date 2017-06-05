@@ -47,6 +47,44 @@
 
 #include "MINEM68K.h"
 
+/*
+	ReportAbnormalID unused 0x0123 - 0x01FF
+*/
+
+#ifndef DisableLazyFlagAll
+#define DisableLazyFlagAll 0
+#endif
+	/*
+		useful for debugging, to tell if an observed bug is
+		being cause by lazy flag evaluation stuff.
+		Can also disable parts of it individually:
+	*/
+
+#ifndef ForceFlagsEval
+#if DisableLazyFlagAll
+#define ForceFlagsEval 1
+#else
+#define ForceFlagsEval 0
+#endif
+#endif
+
+#ifndef UseLazyZ
+#if DisableLazyFlagAll || ForceFlagsEval
+#define UseLazyZ 0
+#else
+#define UseLazyZ 1
+#endif
+#endif
+
+#ifndef UseLazyCC
+#if DisableLazyFlagAll
+#define UseLazyCC 0
+#else
+#define UseLazyCC 1
+#endif
+#endif
+
+
 typedef unsigned char flagtype; /* must be 0 or 1, not boolean */
 
 
@@ -97,7 +135,9 @@ enum {
 	kLazyFlagsAslB,
 	kLazyFlagsAslW,
 	kLazyFlagsAslL,
+#if UseLazyZ
 	kLazyFlagsZSet,
+#endif
 
 	kNumLazyFlagsKinds
 };
@@ -131,7 +171,9 @@ LOCALVAR struct regstruct
 
 	ui3r LazyFlagKind;
 	ui3r LazyXFlagKind;
+#if UseLazyZ
 	ui3r LazyFlagZSavedKind;
+#endif
 	ui5r LazyFlagArgSrc;
 	ui5r LazyFlagArgDst;
 	ui5r LazyXFlagArgSrc;
@@ -477,11 +519,11 @@ FORWARDPROC DoCodeMoveRUSP(void);
 FORWARDPROC DoCodeMoveUSPR(void);
 FORWARDPROC DoCodeTas(void);
 FORWARDPROC DoCodeFdefault(void);
-FORWARDPROC DoCodeCallMorRtm(void);
 FORWARDPROC DoCodeStop(void);
 FORWARDPROC DoCodeReset(void);
 
 #if Use68020
+FORWARDPROC DoCodeCallMorRtm(void);
 FORWARDPROC DoCodeBraL(void);
 FORWARDPROC DoCodeBccL(void);
 FORWARDPROC DoCodeBsrL(void);
@@ -660,11 +702,11 @@ LOCALVAR const func_pointer_t OpDispatch[kNumIKinds + 1] = {
 	DoCodeMoveUSPR /* kIKindMoveUSPR */,
 	DoCodeTas /* kIKindTas */,
 	DoCodeFdefault /* kIKindFdflt */,
-	DoCodeCallMorRtm /* kIKindCallMorRtm */,
 	DoCodeStop /* kIKindStop */,
 	DoCodeReset /* kIKindReset */,
 
 #if Use68020
+	DoCodeCallMorRtm /* kIKindCallMorRtm */,
 	DoCodeBraL /* kIKindBraL */,
 	DoCodeBccL /* kIKindBccL */,
 	DoCodeBsrL /* kIKindBsrL */,
@@ -919,7 +961,7 @@ LOCALFUNC ui5b my_reg_call get_disp_ea(ui5b base)
 		switch ((dp >> 4) & 0x03) {
 			case 0:
 				/* reserved */
-				ReportAbnormal("Extension Word: dp reserved");
+				ReportAbnormalID(0x0101, "Extension Word: dp reserved");
 				break;
 			case 1:
 				/* no displacement */
@@ -945,7 +987,8 @@ LOCALFUNC ui5b my_reg_call get_disp_ea(ui5b base)
 		if ((dp & 0x03) == 0) {
 			base += regd;
 			if ((dp & 0x04) != 0) {
-				ReportAbnormal("Extension Word: reserved dp form");
+				ReportAbnormalID(0x0102,
+					"Extension Word: reserved dp form");
 			}
 			/* ReportAbnormal("Extension Word: noindex"); */
 			/* used by Sys 7.5.5 boot */
@@ -2194,6 +2237,25 @@ LOCALPROC my_reg_call cctrue_LE(cond_actP t_act, cond_actP f_act)
 	}
 }
 
+#if Have_ASR
+#define Ui5rASR(x, s) ((ui5r)(((si5r)(x)) >> (s)))
+#else
+LOCALFUNC ui5r Ui5rASR(ui5r x, ui5r s)
+{
+	ui5r v;
+
+	if (ui5r_MSBisSet(x)) {
+		v = ~ ((~ x) >> s);
+	} else {
+		v = x >> s;
+	}
+
+	return v;
+}
+#endif
+
+#if UseLazyCC
+
 LOCALPROC my_reg_call cctrue_TstL_HI(cond_actP t_act, cond_actP f_act)
 {
 	if (((ui5b)V_regs.LazyFlagArgDst) > ((ui5b)0)) {
@@ -2671,23 +2733,6 @@ LOCALPROC my_reg_call cctrue_Asr_CS(cond_actP t_act, cond_actP f_act)
 	}
 }
 
-#if Have_ASR
-#define Ui5rASR(x, s) ((ui5r)(((si5r)(x)) >> (s)))
-#else
-LOCALFUNC ui5r Ui5rASR(ui5r x, ui5r s)
-{
-	ui5r v;
-
-	if (ui5r_MSBisSet(x)) {
-		v = ~ ((~ x) >> s);
-	} else {
-		v = x >> s;
-	}
-
-	return v;
-}
-#endif
-
 LOCALPROC my_reg_call cctrue_AslB_CC(cond_actP t_act, cond_actP f_act)
 {
 	if (0 ==
@@ -2828,9 +2873,17 @@ LOCALPROC my_reg_call cctrue_AslL_VS(cond_actP t_act, cond_actP f_act)
 
 FORWARDPROC my_reg_call cctrue_Dflt(cond_actP t_act, cond_actP f_act);
 
+#endif /* UseLazyCC */
+
+#if UseLazyCC
+#define CCdispSz (16 * kNumLazyFlagsKinds)
+#else
+#define CCdispSz kNumLazyFlagsKinds
+#endif
+
 typedef void (my_reg_call *cctrueP)(cond_actP t_act, cond_actP f_act);
 
-LOCALVAR const cctrueP cctrueDispatch[16 * kNumLazyFlagsKinds] = {
+LOCALVAR const cctrueP cctrueDispatch[CCdispSz + 1] = {
 	cctrue_T /* kLazyFlagsDefault T */,
 	cctrue_F /* kLazyFlagsDefault F */,
 	cctrue_HI /* kLazyFlagsDefault HI */,
@@ -2848,6 +2901,7 @@ LOCALVAR const cctrueP cctrueDispatch[16 * kNumLazyFlagsKinds] = {
 	cctrue_GT /* kLazyFlagsDefault GT */,
 	cctrue_LE /* kLazyFlagsDefault LE */,
 
+#if UseLazyCC
 	cctrue_T /* kLazyFlagsTstB T */,
 	cctrue_F /* kLazyFlagsTstB F */,
 	cctrue_Dflt /* kLazyFlagsTstB HI */,
@@ -3205,6 +3259,7 @@ LOCALVAR const cctrueP cctrueDispatch[16 * kNumLazyFlagsKinds] = {
 	cctrue_Dflt /* kLazyFlagsAslL GT */,
 	cctrue_Dflt /* kLazyFlagsAslL LE */,
 
+#if UseLazyZ
 	cctrue_T /* kLazyFlagsZSet T */,
 	cctrue_F /* kLazyFlagsZSet F */,
 	cctrue_Dflt /* kLazyFlagsZSet HI */,
@@ -3220,14 +3275,20 @@ LOCALVAR const cctrueP cctrueDispatch[16 * kNumLazyFlagsKinds] = {
 	cctrue_Dflt /* kLazyFlagsZSet GE */,
 	cctrue_Dflt /* kLazyFlagsZSet LT */,
 	cctrue_Dflt /* kLazyFlagsZSet GT */,
-	cctrue_Dflt /* kLazyFlagsZSet LE */
+	cctrue_Dflt /* kLazyFlagsZSet LE */,
+#endif
+#endif /* UseLazyCC */
+
+	0
 };
 
+#if UseLazyCC
 LOCALINLINEPROC cctrue(cond_actP t_act, cond_actP f_act)
 {
 	(cctrueDispatch[V_regs.LazyFlagKind * 16
 		+ V_regs.CurDecOpY.v[0].ArgDat])(t_act, f_act);
 }
+#endif
 
 
 LOCALPROC NeedDefaultLazyXFlagSubB(void)
@@ -3253,28 +3314,31 @@ LOCALPROC NeedDefaultLazyXFlagSubL(void)
 
 LOCALPROC NeedDefaultLazyXFlagAddB(void)
 {
-	ui5r result =
-		ui5r_FromUByte(V_regs.LazyXFlagArgDst + V_regs.LazyXFlagArgSrc);
+	ui3b src = (ui3b)V_regs.LazyXFlagArgSrc;
+	ui3b dst = (ui3b)V_regs.LazyXFlagArgDst;
+	ui3b result = dst + src;
 
-	XFLG = Bool2Bit(result < V_regs.LazyXFlagArgSrc);
+	XFLG = Bool2Bit(result < src);
 	V_regs.LazyXFlagKind = kLazyFlagsDefault;
 }
 
 LOCALPROC NeedDefaultLazyXFlagAddW(void)
 {
-	ui5r result =
-		ui5r_FromUWord(V_regs.LazyXFlagArgDst + V_regs.LazyXFlagArgSrc);
+	ui4b src = (ui4b)V_regs.LazyXFlagArgSrc;
+	ui4b dst = (ui4b)V_regs.LazyXFlagArgDst;
+	ui4b result = dst + src;
 
-	XFLG = Bool2Bit(result < V_regs.LazyXFlagArgSrc);
+	XFLG = Bool2Bit(result < src);
 	V_regs.LazyXFlagKind = kLazyFlagsDefault;
 }
 
 LOCALPROC NeedDefaultLazyXFlagAddL(void)
 {
-	ui5r result =
-		ui5r_FromULong(V_regs.LazyXFlagArgDst + V_regs.LazyXFlagArgSrc);
+	ui5b src = (ui5b)V_regs.LazyXFlagArgSrc;
+	ui5b dst = (ui5b)V_regs.LazyXFlagArgDst;
+	ui5b result = dst + src;
 
-	XFLG = Bool2Bit(result < V_regs.LazyXFlagArgSrc);
+	XFLG = Bool2Bit(result < src);
 	V_regs.LazyXFlagKind = kLazyFlagsDefault;
 }
 
@@ -3336,7 +3400,8 @@ LOCALPROC NeedDefaultLazyXFlagDefault(void)
 
 typedef void (*NeedLazyFlagP)(void);
 
-LOCALVAR const NeedLazyFlagP NeedLazyXFlagDispatch[kNumLazyFlagsKinds] =
+LOCALVAR const NeedLazyFlagP
+	NeedLazyXFlagDispatch[kNumLazyFlagsKinds + 1] =
 {
 	NeedDefaultLazyXFlagDefault /* kLazyFlagsDefault */,
 	0 /* kLazyFlagsTstB */,
@@ -3360,12 +3425,23 @@ LOCALVAR const NeedLazyFlagP NeedLazyXFlagDispatch[kNumLazyFlagsKinds] =
 	NeedDefaultLazyXFlagAslB /* kLazyFlagsAslB */,
 	NeedDefaultLazyXFlagAslW /* kLazyFlagsAslW */,
 	NeedDefaultLazyXFlagAslL /* kLazyFlagsAslL */,
-	0 /* kLazyFlagsZSet */
+#if UseLazyZ
+	0 /* kLazyFlagsZSet */,
+#endif
+
+	0
 };
 
 LOCALPROC NeedDefaultLazyXFlag(void)
 {
+#if ForceFlagsEval
+	if (kLazyFlagsDefault != V_regs.LazyXFlagKind) {
+		ReportAbnormalID(0x0103,
+			"not kLazyFlagsDefault in NeedDefaultLazyXFlag");
+	}
+#else
 	(NeedLazyXFlagDispatch[V_regs.LazyXFlagKind])();
+#endif
 }
 
 LOCALPROC NeedDefaultLazyFlagsTstL(void)
@@ -3730,9 +3806,12 @@ LOCALPROC NeedDefaultLazyFlagsAslL(void)
 	V_regs.LazyXFlagKind = kLazyFlagsDefault;
 }
 
+#if UseLazyZ
 FORWARDPROC NeedDefaultLazyFlagsZSet(void);
+#endif
 
-LOCALVAR const NeedLazyFlagP NeedLazyFlagDispatch[kNumLazyFlagsKinds] =
+LOCALVAR const NeedLazyFlagP
+	NeedLazyFlagDispatch[kNumLazyFlagsKinds + 1] =
 {
 	NeedDefaultLazyXFlag /* kLazyFlagsDefault */,
 	0 /* kLazyFlagsTstB */,
@@ -3756,14 +3835,40 @@ LOCALVAR const NeedLazyFlagP NeedLazyFlagDispatch[kNumLazyFlagsKinds] =
 	NeedDefaultLazyFlagsAslB /* kLazyFlagsAslB */,
 	NeedDefaultLazyFlagsAslW /* kLazyFlagsAslW */,
 	NeedDefaultLazyFlagsAslL /* kLazyFlagsAslL */,
-	NeedDefaultLazyFlagsZSet /* kLazyFlagsZSet */
+#if UseLazyZ
+	NeedDefaultLazyFlagsZSet /* kLazyFlagsZSet */,
+#endif
+
+	0
 };
 
-LOCALPROC NeedDefaultLazyAllFlags(void)
+LOCALPROC NeedDefaultLazyAllFlags0(void)
 {
 	(NeedLazyFlagDispatch[V_regs.LazyFlagKind])();
 }
 
+#if ForceFlagsEval
+LOCALPROC NeedDefaultLazyAllFlags(void)
+{
+	if (kLazyFlagsDefault != V_regs.LazyFlagKind) {
+		ReportAbnormalID(0x0104,
+			"not kLazyFlagsDefault in NeedDefaultLazyAllFlags");
+#if dbglog_HAVE
+		dbglog_writelnNum("LazyFlagKind", V_regs.LazyFlagKind);
+#endif
+	}
+}
+#else
+#define NeedDefaultLazyAllFlags NeedDefaultLazyAllFlags0
+#endif
+
+#if ForceFlagsEval
+#define HaveSetUpFlags NeedDefaultLazyAllFlags0
+#else
+#define HaveSetUpFlags()
+#endif
+
+#if UseLazyZ
 LOCALPROC NeedDefaultLazyFlagsZSet(void)
 {
 	flagtype SaveZFLG = ZFLG;
@@ -3773,12 +3878,23 @@ LOCALPROC NeedDefaultLazyFlagsZSet(void)
 
 	ZFLG = SaveZFLG;
 }
+#endif
 
+#if UseLazyCC
 LOCALPROC my_reg_call cctrue_Dflt(cond_actP t_act, cond_actP f_act)
 {
 	NeedDefaultLazyAllFlags();
 	cctrue(t_act, f_act);
 }
+#endif
+
+#if ! UseLazyCC
+LOCALINLINEPROC cctrue(cond_actP t_act, cond_actP f_act)
+{
+	NeedDefaultLazyAllFlags();
+	(cctrueDispatch[V_regs.CurDecOpY.v[0].ArgDat])(t_act, f_act);
+}
+#endif
 
 
 #define LOCALIPROC LOCALPROC /* LOCALPROCUSEDONCE */
@@ -3790,6 +3906,8 @@ LOCALIPROC DoCodeCmpB(void)
 	V_regs.LazyFlagKind = kLazyFlagsCmpB;
 	V_regs.LazyFlagArgSrc = V_regs.SrcVal;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 }
 
 LOCALIPROC DoCodeCmpW(void)
@@ -3799,6 +3917,8 @@ LOCALIPROC DoCodeCmpW(void)
 	V_regs.LazyFlagKind = kLazyFlagsCmpW;
 	V_regs.LazyFlagArgSrc = V_regs.SrcVal;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 }
 
 LOCALIPROC DoCodeCmpL(void)
@@ -3808,6 +3928,8 @@ LOCALIPROC DoCodeCmpL(void)
 	V_regs.LazyFlagKind = kLazyFlagsCmpL;
 	V_regs.LazyFlagArgSrc = V_regs.SrcVal;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 }
 
 LOCALIPROC DoCodeMoveL(void)
@@ -3816,6 +3938,8 @@ LOCALIPROC DoCodeMoveL(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = src;
+
+	HaveSetUpFlags();
 
 	DecodeSetDstValue(src);
 }
@@ -3827,6 +3951,8 @@ LOCALIPROC DoCodeMoveW(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = src;
 
+	HaveSetUpFlags();
+
 	DecodeSetDstValue(src);
 }
 
@@ -3836,6 +3962,8 @@ LOCALIPROC DoCodeMoveB(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = src;
+
+	HaveSetUpFlags();
 
 	DecodeSetDstValue(src);
 }
@@ -3848,6 +3976,8 @@ LOCALIPROC DoCodeTst(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = srcvalue;
+
+	HaveSetUpFlags();
 }
 
 LOCALIPROC DoCodeBraB(void)
@@ -4002,6 +4132,8 @@ LOCALIPROC DoCodeSwap(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dst;
 
+	HaveSetUpFlags();
+
 	*dstp = dst;
 }
 
@@ -4022,6 +4154,8 @@ LOCALIPROC DoCodeMoveQ(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = src;
 
+	HaveSetUpFlags();
+
 	m68k_dreg(dstreg) = src;
 }
 
@@ -4038,6 +4172,8 @@ LOCALIPROC DoCodeAddB(void)
 	V_regs.LazyXFlagKind = kLazyFlagsAddB;
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(result);
 }
@@ -4056,6 +4192,8 @@ LOCALIPROC DoCodeAddW(void)
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(result);
 }
 
@@ -4072,6 +4210,8 @@ LOCALIPROC DoCodeAddL(void)
 	V_regs.LazyXFlagKind = kLazyFlagsAddL;
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(result);
 }
@@ -4090,6 +4230,8 @@ LOCALIPROC DoCodeSubB(void)
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(result);
 }
 
@@ -4107,6 +4249,8 @@ LOCALIPROC DoCodeSubW(void)
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(result);
 }
 
@@ -4123,6 +4267,8 @@ LOCALIPROC DoCodeSubL(void)
 	V_regs.LazyXFlagKind = kLazyFlagsSubL;
 	V_regs.LazyXFlagArgSrc = srcvalue;
 	V_regs.LazyXFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(result);
 }
@@ -4250,6 +4396,8 @@ LOCALIPROC DoCodeClr(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = 0;
 
+	HaveSetUpFlags();
+
 	DecodeSetDstValue(0);
 }
 
@@ -4275,6 +4423,8 @@ LOCALIPROC DoCodeCmpA(void)
 	V_regs.LazyFlagKind = kLazyFlagsCmpL;
 	V_regs.LazyFlagArgSrc = V_regs.SrcVal;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 }
 
 LOCALFUNC ui4rr m68k_getCR(void)
@@ -4347,14 +4497,14 @@ LOCALPROC my_reg_call m68k_setSR(ui4rr newsr)
 #if Use68020
 	V_regs.t0 = (newsr >> 14) & 1;
 	if (V_regs.t0 != 0) {
-		ReportAbnormal("t0 flag set in m68k_setSR");
+		ReportAbnormalID(0x0105, "t0 flag set in m68k_setSR");
 	}
 #endif
 	V_regs.s = (newsr >> 13) & 1;
 #if Use68020
 	V_regs.m = (newsr >> 12) & 1;
 	if (V_regs.m != 0) {
-		ReportAbnormal("m flag set in m68k_setSR");
+		ReportAbnormalID(0x0106, "m flag set in m68k_setSR");
 	}
 #endif
 	V_regs.intmask = (newsr >> 8) & 7;
@@ -4681,6 +4831,8 @@ LOCALPROC my_reg_call DoCodeNullShift(ui5r dstvalue)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(dstvalue);
 }
 
@@ -4739,6 +4891,8 @@ LOCALIPROC DoCodeAslB(void)
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
 
+			HaveSetUpFlags();
+
 			ArgSetDstValue(result);
 		}
 	}
@@ -4773,6 +4927,8 @@ LOCALIPROC DoCodeAslW(void)
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
 
+			HaveSetUpFlags();
+
 			ArgSetDstValue(result);
 		}
 	}
@@ -4806,6 +4962,8 @@ LOCALIPROC DoCodeAslL(void)
 			V_regs.LazyXFlagKind = kLazyFlagsAslL;
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
+
+			HaveSetUpFlags();
 
 			ArgSetDstValue(result);
 		}
@@ -4873,6 +5031,8 @@ LOCALIPROC DoCodeAsrB(void)
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
 
+			HaveSetUpFlags();
+
 			ArgSetDstValue(result);
 		}
 	}
@@ -4903,6 +5063,8 @@ LOCALIPROC DoCodeAsrW(void)
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
 
+			HaveSetUpFlags();
+
 			ArgSetDstValue(result);
 		}
 	}
@@ -4932,6 +5094,8 @@ LOCALIPROC DoCodeAsrL(void)
 			V_regs.LazyXFlagKind = kLazyFlagsAsrL;
 			V_regs.LazyXFlagArgSrc = cnt;
 			V_regs.LazyXFlagArgDst = dstvalue;
+
+			HaveSetUpFlags();
 
 			ArgSetDstValue(result);
 		}
@@ -5522,6 +5686,7 @@ LOCALIPROC DoCodeRorL(void)
 }
 
 
+#if UseLazyZ
 LOCALPROC WillSetZFLG(void)
 {
 	if (kLazyFlagsZSet == V_regs.LazyFlagKind) {
@@ -5533,6 +5698,9 @@ LOCALPROC WillSetZFLG(void)
 		V_regs.LazyFlagKind = kLazyFlagsZSet;
 	}
 }
+#else
+#define WillSetZFLG NeedDefaultLazyAllFlags
+#endif
 
 LOCALINLINEFUNC ui5r DecodeGetSrcGetDstValueSetZ(void)
 {
@@ -5644,6 +5812,8 @@ LOCALIPROC DoCodeAnd(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(dstvalue);
 }
 
@@ -5660,6 +5830,8 @@ LOCALIPROC DoCodeOr(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(dstvalue);
 }
@@ -5679,6 +5851,8 @@ LOCALIPROC DoCodeEor(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(dstvalue);
 }
 
@@ -5691,6 +5865,8 @@ LOCALIPROC DoCodeNot(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(dstvalue);
 }
@@ -5726,6 +5902,8 @@ LOCALIPROC DoCodeEXTL(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	*dstp = dstvalue;
 }
 
@@ -5738,6 +5916,8 @@ LOCALIPROC DoCodeEXTW(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 #if LittleEndianUnaligned
 	*(ui4b *)dstp = dstvalue;
@@ -5756,6 +5936,8 @@ LOCALIPROC DoCodeNegB(void)
 	V_regs.LazyXFlagKind = kLazyFlagsNegB;
 	V_regs.LazyXFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(result);
 }
 
@@ -5769,6 +5951,8 @@ LOCALIPROC DoCodeNegW(void)
 	V_regs.LazyXFlagKind = kLazyFlagsNegW;
 	V_regs.LazyXFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	ArgSetDstValue(result);
 }
 
@@ -5781,6 +5965,8 @@ LOCALIPROC DoCodeNegL(void)
 	V_regs.LazyFlagArgDst = dstvalue;
 	V_regs.LazyXFlagKind = kLazyFlagsNegL;
 	V_regs.LazyXFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	ArgSetDstValue(result);
 }
@@ -5877,6 +6063,8 @@ LOCALIPROC DoCodeMulU(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	*dstp = dstvalue;
 }
 
@@ -5905,6 +6093,8 @@ LOCALIPROC DoCodeMulS(void)
 
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
+
+	HaveSetUpFlags();
 
 	*dstp = dstvalue;
 }
@@ -6377,28 +6567,34 @@ LOCALIPROC DoCodeRte(void)
 					/* ReportAbnormal("rte stack frame format 0"); */
 					break;
 				case 1:
-					ReportAbnormal("rte stack frame format 1");
+					ReportAbnormalID(0x0107,
+						"rte stack frame format 1");
 					NewPC = m68k_getpc() - 2;
 						/* rerun instruction */
 					break;
 				case 2:
-					ReportAbnormal("rte stack frame format 2");
+					ReportAbnormalID(0x0108,
+						"rte stack frame format 2");
 					stackp += 4;
 					break;
 				case 9:
-					ReportAbnormal("rte stack frame format 9");
+					ReportAbnormalID(0x0109,
+						"rte stack frame format 9");
 					stackp += 12;
 					break;
 				case 10:
-					ReportAbnormal("rte stack frame format 10");
+					ReportAbnormalID(0x010A,
+						"rte stack frame format 10");
 					stackp += 24;
 					break;
 				case 11:
-					ReportAbnormal("rte stack frame format 11");
+					ReportAbnormalID(0x010B,
+						"rte stack frame format 11");
 					stackp += 84;
 					break;
 				default:
-					ReportAbnormal("unknown rte stack frame format");
+					ReportAbnormalID(0x010C,
+						"unknown rte stack frame format");
 					Exception(14);
 					return;
 					break;
@@ -6633,6 +6829,8 @@ LOCALIPROC DoCodeTas(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	dstvalue |= 0x80;
 
 	ArgSetDstValue(dstvalue);
@@ -6642,12 +6840,6 @@ LOCALIPROC DoCodeFdefault(void)
 {
 	BackupPC();
 	Exception(0xB);
-}
-
-LOCALIPROC DoCodeCallMorRtm(void)
-{
-	/* CALLM or RTM 0000011011mmmrrr */
-	ReportAbnormal("CALLM or RTM instruction");
 }
 
 LOCALPROC m68k_setstopped(void)
@@ -6681,6 +6873,14 @@ LOCALIPROC DoCodeReset(void)
 		local_customreset();
 	}
 }
+
+#if Use68020
+LOCALIPROC DoCodeCallMorRtm(void)
+{
+	/* CALLM or RTM 0000011011mmmrrr */
+	ReportAbnormalID(0x010D, "CALLM or RTM instruction");
+}
+#endif
 
 #if Use68020
 LOCALIPROC DoCodeMoveCCREa(void)
@@ -6764,6 +6964,8 @@ LOCALIPROC DoCodeEXTBL(void)
 	V_regs.LazyFlagKind = kLazyFlagsTstL;
 	V_regs.LazyFlagArgDst = dstvalue;
 
+	HaveSetUpFlags();
+
 	*dstp = dstvalue;
 }
 #endif
@@ -6803,7 +7005,8 @@ LOCALPROC DoCHK2orCMP2(void)
 		default:
 #if ExtraAbnormalReports
 			if (4 != V_regs.CurDecOpY.v[0].ArgDat) {
-				ReportAbnormal("illegal opsize in CHK2 or CMP2");
+				ReportAbnormalID(0x010E,
+					"illegal opsize in CHK2 or CMP2");
 			}
 #endif
 			if ((extra & 0x8000) == 0) {
@@ -6842,7 +7045,7 @@ LOCALPROC DoCAS(void)
 	int ru = (src >> 6) & 7;
 	int rc = src & 7;
 
-	ReportAbnormal("CAS instruction");
+	ReportAbnormalID(0x010F, "CAS instruction");
 	switch (V_regs.CurDecOpY.v[0].ArgDat) {
 		case 1:
 			srcvalue = ui5r_FromSByte(V_regs.regs[rc]);
@@ -6853,7 +7056,7 @@ LOCALPROC DoCAS(void)
 		default:
 #if ExtraAbnormalReports
 			if (4 != V_regs.CurDecOpY.v[0].ArgDat) {
-				ReportAbnormal("illegal opsize in DoCAS");
+				ReportAbnormalID(0x0110, "illegal opsize in DoCAS");
 			}
 #endif
 			srcvalue = ui5r_FromSLong(V_regs.regs[rc]);
@@ -6916,7 +7119,7 @@ LOCALPROC DoCAS2(void)
 	si5r dst1;
 	si5r dst2;
 
-	ReportAbnormal("DoCAS2 instruction");
+	ReportAbnormalID(0x0111, "DoCAS2 instruction");
 	if (V_regs.CurDecOpY.v[0].ArgDat == 2) {
 		dst1 = get_word(rn1);
 		dst2 = get_word(rn2);
@@ -6987,7 +7190,7 @@ LOCALPROC DoCAS2(void)
 LOCALPROC DoMOVES(void)
 {
 	/* MoveS 00001110ssmmmrrr */
-	ReportAbnormal("MoveS instruction");
+	ReportAbnormalID(0x0112, "MoveS instruction");
 	if (0 == V_regs.s) {
 		DoPrivilegeViolation();
 	} else {
@@ -7304,7 +7507,7 @@ LOCALIPROC DoMoveToControl(void)
 				break;
 			case 0x0800:
 				V_regs.usp = v;
-				ReportAbnormal("DoMoveToControl: usp");
+				ReportAbnormalID(0x0113, "DoMoveToControl: usp");
 				break;
 			case 0x0801:
 				V_regs.vbr = v;
@@ -7329,11 +7532,12 @@ LOCALIPROC DoMoveToControl(void)
 				if (V_regs.m == 0) {
 					m68k_areg(7) = V_regs.isp;
 				}
-				ReportAbnormal("DoMoveToControl: isp");
+				ReportAbnormalID(0x0114, "DoMoveToControl: isp");
 				break;
 			default:
 				op_illg();
-				ReportAbnormal("DoMoveToControl: unknown reg");
+				ReportAbnormalID(0x0115,
+					"DoMoveToControl: unknown reg");
 				break;
 		}
 	}
@@ -7368,7 +7572,7 @@ LOCALIPROC DoMoveFromControl(void)
 				break;
 			case 0x0800:
 				v = V_regs.usp;
-				ReportAbnormal("DoMoveFromControl: usp");
+				ReportAbnormalID(0x0116, "DoMoveFromControl: usp");
 				break;
 			case 0x0801:
 				v = V_regs.vbr;
@@ -7391,11 +7595,12 @@ LOCALIPROC DoMoveFromControl(void)
 				v = (V_regs.m == 0)
 					? m68k_areg(7)
 					: V_regs.isp;
-				ReportAbnormal("DoMoveFromControl: isp");
+				ReportAbnormalID(0x0117, "DoMoveFromControl: isp");
 				break;
 			default:
 				v = 0;
-				ReportAbnormal("DoMoveFromControl: unknown reg");
+				ReportAbnormalID(0x0118,
+					"DoMoveFromControl: unknown reg");
 				op_illg();
 				break;
 		}
@@ -7408,7 +7613,7 @@ LOCALIPROC DoMoveFromControl(void)
 LOCALIPROC DoCodeBkpt(void)
 {
 	/* BKPT 0100100001001rrr */
-	ReportAbnormal("BKPT instruction");
+	ReportAbnormalID(0x0119, "BKPT instruction");
 	op_illg();
 }
 #endif
@@ -7435,7 +7640,7 @@ LOCALIPROC DoCodeLinkL(void)
 	ui5r *dstp = &V_regs.regs[dstreg];
 	CPTR stackp = m68k_areg(7);
 
-	ReportAbnormal("Link.L");
+	ReportAbnormalID(0x011A, "Link.L");
 
 	stackp -= 4;
 	m68k_areg(7) = stackp; /* only matters if dstreg == 7 + 8 */
@@ -7448,7 +7653,7 @@ LOCALIPROC DoCodeLinkL(void)
 #if Use68020
 LOCALPROC DoCodeTRAPcc_t(void)
 {
-	ReportAbnormal("TRAPcc trapping");
+	ReportAbnormalID(0x011B, "TRAPcc trapping");
 	Exception(7);
 	/* pc pushed onto stack wrong */
 }
@@ -7467,11 +7672,11 @@ LOCALIPROC DoCodeTRAPcc(void)
 	/* ReportAbnormal("TRAPcc"); */
 	switch (V_regs.CurDecOpY.v[0].ArgDat) {
 		case 2:
-			ReportAbnormal("TRAPcc word data");
+			ReportAbnormalID(0x011C, "TRAPcc word data");
 			SkipiWord();
 			break;
 		case 3:
-			ReportAbnormal("TRAPcc long data");
+			ReportAbnormalID(0x011D, "TRAPcc long data");
 			SkipiLong();
 			break;
 		case 4:
@@ -7479,7 +7684,7 @@ LOCALIPROC DoCodeTRAPcc(void)
 			/* no optional data */
 			break;
 		default:
-			ReportAbnormal("TRAPcc illegal format");
+			ReportAbnormalID(0x011E, "TRAPcc illegal format");
 			op_illg();
 			break;
 	}
@@ -7493,7 +7698,7 @@ LOCALIPROC DoCodePack(void)
 	ui5r offs = nextiSWord();
 	ui5r val = DecodeGetSrcValue();
 
-	ReportAbnormal("PACK");
+	ReportAbnormalID(0x011F, "PACK");
 
 	val += offs;
 	val = ((val >> 4) & 0xf0) | (val & 0xf);
@@ -7508,7 +7713,7 @@ LOCALIPROC DoCodeUnpk(void)
 	ui5r offs = nextiSWord();
 	ui5r val = DecodeGetSrcValue();
 
-	ReportAbnormal("UNPK");
+	ReportAbnormalID(0x0120, "UNPK");
 
 	val = (((val & 0xF0) << 4) | (val & 0x0F)) + offs;
 
@@ -7937,7 +8142,7 @@ LOCALIPROC DoCodeMMU(void)
 		BackupPC();
 	}
 	/* fprintf(stderr, "opcode %x\n", (int)opcode); */
-	ReportAbnormal("MMU op");
+	ReportAbnormalID(0x0121, "MMU op");
 	DoCodeFdefault();
 }
 #endif
@@ -8319,7 +8524,7 @@ Label_Retry:
 		}
 		/* in trouble if get here */
 #if ExtraAbnormalReports
-		ReportAbnormal("Recalc_PC_Block fails");
+		ReportAbnormalID(0x0122, "Recalc_PC_Block fails");
 			/* happens on Restart */
 #endif
 

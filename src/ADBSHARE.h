@@ -26,6 +26,10 @@
 #endif
 
 
+/*
+	ReportAbnormalID unused 0x0D08 - 0x0DFF
+*/
+
 #define ADB_MaxSzDatBuf 8
 
 LOCALVAR ui3b ADB_SzDatBuf;
@@ -109,7 +113,7 @@ LOCALPROC ADB_DoMouseTalk(void)
 			NotSoRandAddr += 1;
 			break;
 		default:
-			ReportAbnormal("Talk to unknown mouse register");
+			ReportAbnormalID(0x0D01, "Talk to unknown mouse register");
 			break;
 	}
 }
@@ -122,11 +126,13 @@ LOCALPROC ADB_DoMouseListen(void)
 				/* change address */
 				MouseADBAddress = (ADB_DatBuf[0] & 0x0F);
 			} else {
-				ReportAbnormal("unknown listen op to mouse register 3");
+				ReportAbnormalID(0x0D02,
+					"unknown listen op to mouse register 3");
 			}
 			break;
 		default:
-			ReportAbnormal("listen to unknown mouse register");
+			ReportAbnormalID(0x0D03,
+				"listen to unknown mouse register");
 			break;
 	}
 }
@@ -198,7 +204,8 @@ LOCALPROC ADB_DoKeyboardTalk(void)
 			NotSoRandAddr += 1;
 			break;
 		default:
-			ReportAbnormal("Talk to unknown keyboard register");
+			ReportAbnormalID(0x0D04,
+				"Talk to unknown keyboard register");
 			break;
 	}
 }
@@ -211,12 +218,13 @@ LOCALPROC ADB_DoKeyboardListen(void)
 				/* change address */
 				KeyboardADBAddress = (ADB_DatBuf[0] & 0x0F);
 			} else {
-				ReportAbnormal(
+				ReportAbnormalID(0x0D05,
 					"unknown listen op to keyboard register 3");
 			}
 			break;
 		default:
-			ReportAbnormal("listen to unknown keyboard register");
+			ReportAbnormalID(0x0D06,
+				"listen to unknown keyboard register");
 			break;
 	}
 }
@@ -277,6 +285,6 @@ LOCALPROC ADB_Flush(void)
 		ADB_DatBuf[0] = 0x00;
 		ADB_DatBuf[1] = 0x00;
 	} else {
-		ReportAbnormal("Unhandled ADB Flush");
+		ReportAbnormalID(0x0D07, "Unhandled ADB Flush");
 	}
 }

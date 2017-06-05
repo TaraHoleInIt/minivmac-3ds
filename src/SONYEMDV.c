@@ -39,6 +39,10 @@
 
 #include "SONYEMDV.h"
 
+/*
+	ReportAbnormalID unused 0x090B - 0x09FF
+*/
+
 
 LOCALVAR ui5b vSonyMountedMask = 0;
 
@@ -135,7 +139,7 @@ label_1:
 		dst = get_real_address0(byteCount, trueblnr,  dstPtr,
 			&contigDst);
 		if ((0 == contigSrc) || (0 == contigDst)) {
-			ReportAbnormal("MyMoveBytesVM fails");
+			ReportAbnormalID(0x0901, "MyMoveBytesVM fails");
 		} else {
 			contig = (contigSrc < contigDst) ? contigSrc : contigDst;
 			MyMoveBytes(src, dst, contig);
@@ -243,7 +247,7 @@ LOCALPROC Drive_UpdateChecksums(tDrive Drive_No)
 			result = DC42BlockChecksum(Drive_No,
 				DataOffset, DataSize, &dataChecksum);
 			if (mnvm_noErr != result) {
-				ReportAbnormal("Failed to find dataChecksum");
+				ReportAbnormalID(0x0902, "Failed to find dataChecksum");
 				dataChecksum = 0;
 			}
 			do_put_mem_long(Buffer, dataChecksum);
@@ -264,7 +268,8 @@ LOCALPROC Drive_UpdateChecksums(tDrive Drive_No)
 					result = DC42BlockChecksum(Drive_No,
 						TagOffset + 12, TagSize - 12, &tagChecksum);
 					if (mnvm_noErr != result) {
-						ReportAbnormal("Failed to find tagChecksum");
+						ReportAbnormalID(0x0903,
+							"Failed to find tagChecksum");
 						tagChecksum = 0;
 					}
 				}
@@ -366,10 +371,12 @@ LOCALFUNC tMacErr vSonyNextPendingInsert(tDrive *Drive_No)
 									tagChecksum = 0;
 								}
 								if (dataChecksum != dataChecksum0) {
-									ReportAbnormal("bad dataChecksum");
+									ReportAbnormalID(0x0904,
+										"bad dataChecksum");
 								}
 								if (tagChecksum != tagChecksum0) {
-									ReportAbnormal("bad tagChecksum");
+									ReportAbnormalID(0x0905,
+										"bad tagChecksum");
 								}
 #endif
 								DataOffset = DataOffset0;
@@ -1136,7 +1143,7 @@ LOCALFUNC tMacErr Sony_Prime(CPTR p)
 				disk with Finder. But not implemented
 				yet.
 			*/
-			ReportAbnormal("read verify mode requested");
+			ReportAbnormalID(0x0906, "read verify mode requested");
 #endif
 			PosMode &= ~ 64;
 		}
@@ -1174,7 +1181,7 @@ LOCALFUNC tMacErr Sony_Prime(CPTR p)
 					+ get_vm_long(DeviceCtl + kdCtlPosition);
 				break;
 			default:
-				ReportAbnormal("unknown PosMode");
+				ReportAbnormalID(0x0907, "unknown PosMode");
 				result = mnvm_paramErr;
 				goto label_fail;
 				break;
@@ -1202,7 +1209,7 @@ LOCALFUNC tMacErr Sony_Prime(CPTR p)
 		{
 			/* only whole blocks allowed */
 #if ExtraAbnormalReports
-			ReportAbnormal("not blockwise in Sony_Prime");
+			ReportAbnormalID(0x0908, "not blockwise in Sony_Prime");
 #endif
 			result = mnvm_paramErr;
 		} else if (IsWrite && (get_vm_byte(dvl + kWriteProt) != 0)) {
@@ -1401,7 +1408,7 @@ LOCALFUNC tMacErr Sony_Control(CPTR p)
 						&& (kMediaIcon != OpCode)
 						&& (kDriveInfo != OpCode))
 					{
-						ReportAbnormal(
+						ReportAbnormalID(0x0909,
 							"unexpected OpCode in Sony_Control");
 					}
 #endif
@@ -1453,7 +1460,8 @@ LOCALFUNC tMacErr Sony_Status(CPTR p)
 		if ((kReturnFormatList != OpCode)
 			&& (kDuplicatorVersionSupport != OpCode))
 		{
-			ReportAbnormal("unexpected OpCode in Sony_Control");
+			ReportAbnormalID(0x090A,
+				"unexpected OpCode in Sony_Control");
 		}
 #endif
 		result = mnvm_statusErr;

@@ -39,6 +39,10 @@
 
 #include "VIDEMDEV.h"
 
+/*
+	ReportAbnormalID unused 0x0A08 - 0x0AFF
+*/
+
 #define VID_dolog (dbglog_HAVE && 0)
 
 LOCALVAR const ui3b VidDrvr_contents[] = {
@@ -386,7 +390,7 @@ GLOBALFUNC blnr Vid_Init(void)
 
 	UsedSoFar = (pPatch - VidROM) + 20;
 	if (UsedSoFar > kVidROM_Size) {
-		ReportAbnormal("kVidROM_Size to small");
+		ReportAbnormalID(0x0A01, "kVidROM_Size to small");
 		return falseblnr;
 	}
 
@@ -608,7 +612,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 							csParam + VDPageInfo_csPage))
 						{
 							/* return mnvm_controlErr, page must be 0 */
-							ReportAbnormal(
+							ReportAbnormalID(0x0A02,
 								"SetVidMode not page 0");
 						} else {
 							result = Vid_SetMode(get_vm_word(
@@ -717,7 +721,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 #endif
 						}
 #if 0
-						ReportAbnormal(
+						ReportAbnormalID(0x0A03,
 							"Video_Access SetGamma not implemented");
 #else
 						result = mnvm_noErr;
@@ -782,7 +786,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 						*/
 						break;
 					default:
-						ReportAbnormal(
+						ReportAbnormalID(0x0A04,
 							"kCmndVideoControl, unknown csCode");
 #if dbglog_HAVE
 						dbglog_writelnNum("csCode", csCode);
@@ -831,7 +835,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 								csParam + VDSetEntryRecord_csCount,
 								csCount);
 #endif
-							ReportAbnormal(
+							ReportAbnormalID(0x0A05,
 								"GetEntries not implemented");
 						}
 						break;
@@ -980,7 +984,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 						/* seen in System 7.5.5 boot */
 						break;
 					default:
-						ReportAbnormal(
+						ReportAbnormalID(0x0A06,
 							"Video_Access kCmndVideoStatus, "
 								"unknown csCode");
 #if dbglog_HAVE
@@ -991,7 +995,7 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 			}
 			break;
 		default:
-			ReportAbnormal(
+			ReportAbnormalID(0x0A07,
 				"Video_Access, unknown commnd");
 			break;
 	}

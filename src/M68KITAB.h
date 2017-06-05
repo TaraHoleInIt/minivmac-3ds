@@ -158,11 +158,11 @@ enum {
 	kIKindMoveUSPR,
 	kIKindTas,
 	kIKindFdflt,
-	kIKindCallMorRtm,
 	kIKindStop,
 	kIKindReset,
 
 #if Use68020
+	kIKindCallMorRtm,
 	kIKindBraL,
 	kIKindBccL,
 	kIKindBsrL,
