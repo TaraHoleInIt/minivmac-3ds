@@ -510,7 +510,7 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 }
 
 struct Vertex {
-	float Position[ 3 ];
+	short Position[ 3 ];
 	float Texcoords[ 2 ];
 	u8 Color[ 4 ];
 };
@@ -526,10 +526,6 @@ struct Vertex {
 #define Cell_Height 16
 
 #define Font_Max_Vertex 1024
-
-//float ColorBlack[ 4 ] = { 0.0, 0.0, 0.0, 1.0 };
-//float ColorGreen[ 4 ] = { 0.0, 1.0, 0.0, 1.0 };
-//float ColorAqua[ 4 ] = { 0.0, 1.0, 1.0, 1.0 };
 
 u8 ColorBlack[ 4 ] = { 0, 0, 0, 255 };
 u8 ColorGreen[ 4 ] = { 0, 255, 0, 255 };
@@ -555,7 +551,7 @@ LOCALVAR rgba32* FontSheetImage = NULL;
  * v		: Texcoord 1
  * Color	: Pointer to an array of 4 floating point color values
  */
-LOCALPROC SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, float v, u8* Color ) {
+LOCALPROC SetVertex( struct Vertex* Ptr, short X, short Y, short Z, float u, float v, u8* Color ) {
 	Ptr->Position[ 0 ] = X;
 	Ptr->Position[ 1 ] = Y;
 	Ptr->Position[ 2 ] = Z;
@@ -566,7 +562,7 @@ LOCALPROC SetVertex( struct Vertex* Ptr, float X, float Y, float Z, float u, flo
 	memcpy( Ptr->Color, Color, sizeof( u8 ) * 4 );
 }
 
-LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
+LOCALFUNC int FontDrawChar( short X, short Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 	u8 Colors[ 4 ] = { R, G, B, A };
 	struct Vertex* Ptr = NULL;
 
@@ -575,8 +571,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 		
 		/* Top left */
 		SetVertex( &Ptr[ 0 ],
-					( float ) X,
-					( float ) Y,
+					X,
+					Y,
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 0 ],
 					GlyphTexCoords[ Glyph ][ 1 ],
@@ -584,8 +580,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 		
 		/* Bottom right */
 		SetVertex( &Ptr[ 1 ],
-					( float ) ( X + Cell_Width ),
-					( float ) ( Y + Cell_Height ),
+					( X + Cell_Width ),
+					( Y + Cell_Height ),
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 2 ],
 					GlyphTexCoords[ Glyph ][ 3 ],
@@ -593,8 +589,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 
 		/* Top right */
 		SetVertex( &Ptr[ 2 ],
-					( float ) ( X + Cell_Width ),
-					( float ) Y,
+					( X + Cell_Width ),
+					Y,
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 4 ],
 					GlyphTexCoords[ Glyph ][ 5 ],
@@ -602,8 +598,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 		
 		/* Top left */
 		SetVertex( &Ptr[ 3 ],
-					( float ) X,
-					( float ) Y,
+					X,
+					Y,
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 0 ],
 					GlyphTexCoords[ Glyph ][ 1 ],
@@ -611,8 +607,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 		
 		/* Bottom left */
 		SetVertex( &Ptr[ 4 ],
-					( float ) X,
-					( float ) ( Y + Cell_Height ),
+					X,
+					( Y + Cell_Height ),
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 6 ],
 					GlyphTexCoords[ Glyph ][ 7 ],
@@ -620,8 +616,8 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 		
 		/* Bottom right */
 		SetVertex( &Ptr[ 5 ],
-					( float ) ( X + Cell_Width ),
-					( float ) ( Y + Cell_Height ),
+					( X + Cell_Width ),
+					( Y + Cell_Height ),
 					0.5f,
 					GlyphTexCoords[ Glyph ][ 2 ],
 					GlyphTexCoords[ Glyph ][ 3 ],
@@ -634,7 +630,7 @@ LOCALFUNC int FontDrawChar( int X, int Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
 	return 0;
 }
 
-LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BGColor ) {
+LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8* BGColor ) {
 	struct Vertex* Ptr = &FontVertexList[ VertexCount ];
 	int Length = 0;
 	int i = 0;
@@ -645,8 +641,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 	if ( Length > 0 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
 		/* Top left */
 		SetVertex( &Ptr[ 0 ],
-					( float ) X,
-					( float ) Y,
+					X,
+					Y,
 					0.6f,
 					GlyphTexCoords[ 0 ][ 0 ],
 					GlyphTexCoords[ 0 ][ 1 ],
@@ -654,8 +650,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 	
 		/* Bottom right */
 		SetVertex( &Ptr[ 1 ],
-					( float ) ( X + ( Length * Cell_Width ) ),
-					( float ) ( Y + Cell_Height ),
+					( X + ( Length * Cell_Width ) ),
+					( Y + Cell_Height ),
 					0.6f,
 					GlyphTexCoords[ 0 ][ 2 ],
 					GlyphTexCoords[ 0 ][ 3 ],
@@ -663,8 +659,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 	
 		/* Top right */
 		SetVertex( &Ptr[ 2 ],
-					( float ) ( X + ( Length * Cell_Width ) ),
-					( float ) Y,
+					( X + ( Length * Cell_Width ) ),
+					Y,
 					0.6f,
 					GlyphTexCoords[ 0 ][ 4 ],
 					GlyphTexCoords[ 0 ][ 5 ],
@@ -672,8 +668,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 		
 		/* Top left */
 		SetVertex( &Ptr[ 3 ],
-					( float ) X,
-					( float ) Y,
+					X,
+					Y,
 					0.6f,
 					GlyphTexCoords[ 0 ][ 0 ],
 					GlyphTexCoords[ 0 ][ 1 ],
@@ -681,8 +677,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 	
 		/* Bottom left */
 		SetVertex( &Ptr[ 4 ],
-					( float ) X,
-					( float ) ( Y + Cell_Height ),
+					X,
+					( Y + Cell_Height ),
 					0.6f,
 					GlyphTexCoords[ 0 ][ 6 ],
 					GlyphTexCoords[ 0 ][ 7 ],
@@ -690,8 +686,8 @@ LOCALFUNC int FontDrawString( int X, int Y, const char* Str, u8* FGColor, u8* BG
 			
 		/* Bottom right */
 		SetVertex( &Ptr[ 5 ],
-					( float ) ( X + ( Length * Cell_Width ) ),
-					( float ) ( Y + Cell_Height ),
+					( X + ( Length * Cell_Width ) ),
+					( Y + Cell_Height ),
 					0.6f,
 					GlyphTexCoords[ 0 ][ 2 ],
 					GlyphTexCoords[ 0 ][ 3 ],
@@ -822,28 +818,28 @@ void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, flo
         
     C3D_ImmDrawBegin( GPU_TRIANGLES );
     // 1st triangle
-        C3D_ImmSendAttrib( X, Y, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X, Y, 1, 0 );
         C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
         
-        C3D_ImmSendAttrib( X + Width, Y + Height, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X + Width, Y + Height, 1, 0 );
         C3D_ImmSendAttrib( u, v, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
         
-        C3D_ImmSendAttrib( X + Width, Y, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X + Width, Y, 1, 0 );
         C3D_ImmSendAttrib( u, 0.0, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
         
         // 2nd triangle
-        C3D_ImmSendAttrib( X, Y, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X, Y, 1, 0 );
         C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
         
-        C3D_ImmSendAttrib( X, Y + Height, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X, Y + Height, 1, 0 );
         C3D_ImmSendAttrib( 0.0, v, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
         
-        C3D_ImmSendAttrib( X + Width, Y + Height, 1.0, 0.0 );
+        C3D_ImmSendAttrib( X + Width, Y + Height, 1, 0 );
         C3D_ImmSendAttrib( u, v, 0.0, 0.0 );
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
     C3D_ImmDrawEnd( );
@@ -905,7 +901,7 @@ static int Video_SetupShader( void ) {
         
         if ( Info ) {
             AttrInfo_Init( Info );
-            AttrInfo_AddLoader( Info, 0, GPU_FLOAT, 3 );
+            AttrInfo_AddLoader( Info, 0, GPU_SHORT, 3 );
             AttrInfo_AddLoader( Info, 1, GPU_FLOAT, 2 );
             AttrInfo_AddLoader( Info, 2, GPU_UNSIGNED_BYTE, 4 );
             
@@ -1080,28 +1076,28 @@ void DebugConsoleDraw( void ) {
     
     C3D_ImmDrawBegin( GPU_TRIANGLES );
     // 1st triangle
-    C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 0, 0, 0, 0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     
-    C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 512, 256, 0, 0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     
-    C3D_ImmSendAttrib( 512, 0, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 512, 0, 0, 0 );
     C3D_ImmSendAttrib( 1.0, 1.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     
     // 2nd triangle
-    C3D_ImmSendAttrib( 0, 0, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 0, 0, 0, 0 );
     C3D_ImmSendAttrib( 1.0, 0.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     
-    C3D_ImmSendAttrib( 0, 256, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 0, 256, 0, 0 );
     C3D_ImmSendAttrib( 0.0, 0.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     
-    C3D_ImmSendAttrib( 512, 256, 0.5, 0.0 );
+    C3D_ImmSendAttrib( 512, 256, 0, 0 );
     C3D_ImmSendAttrib( 0.0, 1.0, 0.0, 0.0 );
     C3D_ImmSendAttrib( 0, 0, 0, 255 );
     C3D_ImmDrawEnd( );
