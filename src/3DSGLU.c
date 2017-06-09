@@ -532,8 +532,6 @@ struct Vertex {
 #define Font_Max_Vertex 4096
 
 u8 ColorBlack[ 4 ] = { 0, 0, 0, 255 };
-u8 ColorGreen[ 4 ] = { 0, 255, 0, 255 };
-u8 ColorAqua[ 4 ] = { 0, 255, 255, 255 };
 u8 ColorWhite[ 4 ] = { 255, 255, 255, 255 };
 
 LOCALVAR struct Vertex* FontVertexList = NULL;
@@ -789,8 +787,6 @@ LOCALPROC LoadFont( void ) {
 			if ( SetupFontVBuffer( ) ) {
 				HasFontLoaded = trueblnr;
 				BuildGlyphCoords( );
-				
-				FontDrawString( 0, 0, "Tara has bad gas o_o", ColorAqua, ColorBlack );
 			}
 		} else {
 			MacMsg( "Invalid resource", "Font size must be 256x128", falseblnr );
@@ -900,7 +896,7 @@ LOCALPROC DiskUI_Start( void ) {
 	/* Set the clear color to white to spare some vertices when
 	 * drawing the directory listing.
 	 */
-	 C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0xFFFFFFFF, 0 );
+	 C3D_RenderTargetSetClear( SubRenderTarget, C3D_CLEAR_ALL, 0xFFFFFFFF, 0 );
 	 IsInDiskInsertUI = trueblnr;
 	 
 	 PopulateDirectoryEntries( );
@@ -911,13 +907,21 @@ LOCALPROC DiskUI_Start( void ) {
 
 LOCALPROC DiskUI_Finish( void ) {
 	/* Set clear color back to black */
-	C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0xFF, 0 );
+	C3D_RenderTargetSetClear( SubRenderTarget, C3D_CLEAR_ALL, 0xFF, 0 );
+	
 	IsInDiskInsertUI = falseblnr;
+	CanScrollDown = falseblnr;
+	
+	SelectedEntry = 0;
+	ScrollOffset = 0;
+	
+	/* Needed? Just make sure... */
+	VertexCount = 0;
 }
 
 LOCALPROC DiskUI_DrawEntries( void ) {
-	const int RowsWeCanDisplay = ( MyScreenHeight / Cell_Height ) - 2;
-	const int ColsWeCanDisplay = ( MyScreenWidth / Cell_Width );
+	const int RowsWeCanDisplay = ( MySubScreenHeight / Cell_Height ) - 2;
+	const int ColsWeCanDisplay = ( MySubScreenWidth / Cell_Width );
 	char LineText[ ColsWeCanDisplay + 1 ];
 	int StartY = Cell_Height * 2;
 	struct dirent* Entry = NULL;	
@@ -962,11 +966,16 @@ LOCALPROC DiskUI_DrawEntries( void ) {
 }
 
 LOCALPROC DiskUI_DrawBG( void ) {
-	/* 400 / Cell width is 50 chars per line
+	/* 320 / Cell width is 40 chars per line
 	 * Instructions are 32 chars
-	 * So we need 9 space chars on either side
+	 * So we need 4 space chars on either side
 	 */
-	FontDrawString( 0, 0, "         [A: Choose, B: Go up, X: Cancel]         ", ColorBlack, NULL );
+	FontDrawString( 0, 0, "    [A: Choose, B: Go up, X: Cancel]    ", ColorBlack, NULL );
+}
+
+LOCALPROC DiskUI_Draw( void ) {
+	DiskUI_DrawBG( );
+	DiskUI_DrawEntries( );
 }
 
 /* Changes to the given directory, repopulates the file list with it's
@@ -1000,10 +1009,6 @@ LOCALPROC DiskUI_Update( void ) {
 		SelectedEntry = 0;
 	else if ( SelectedEntry >= NumDirectoryEntries - 1 )
 		SelectedEntry = NumDirectoryEntries - 1;
-	
-	if ( Keys_Down & KEY_B ) {
-		DiskUI_ChangeDir( ".." );
-	}
 
 	if ( Keys_Down & KEY_A ) {
 		if ( DirectoryEntries[ SelectedEntry ].d_type == DT_DIR ) {
@@ -1013,9 +1018,12 @@ LOCALPROC DiskUI_Update( void ) {
 			DiskUI_Finish( );
 		}
 	}
-
-	DiskUI_DrawBG( );
-	DiskUI_DrawEntries( );
+	
+	if ( Keys_Down & KEY_B )
+		DiskUI_ChangeDir( ".." );
+	
+	if ( Keys_Down & KEY_X )
+		DiskUI_Finish( );
 }
 
 static int Video_SetupRenderTarget( void ) {
@@ -1508,7 +1516,6 @@ LOCALFUNC tMacErr vSonyEject0(tDrive Drive_No, blnr deleteit)
 
 GLOBALFUNC tMacErr vSonyEject(tDrive Drive_No)
 {
-	printf( "%s\n", __FUNCTION__ );
 	return vSonyEject0(Drive_No, falseblnr);
 }
 
@@ -1997,6 +2004,14 @@ LOCALPROC Keyboard_DeInit( void ) {
     C3D_TexDelete( &KeyboardTex );
 }
 
+LOCALPROC Keyboard_Close( void ) {
+	KeyboardIsActive = falseblnr;
+	CurrentKeyDown = 0;
+				
+	KeyboardSetState( Keyboard_State_Normal );
+	ResetSpecialKeys( );
+}
+
 LOCALPROC Keyboard_Update( void ) {
     touchPosition TP;
     
@@ -2015,8 +2030,6 @@ LOCALPROC Keyboard_Toggle( void ) {
 		KeyboardSetState( Keyboard_State_Normal );
 		Keyboard_OnPenUp( NULL );
 		ResetSpecialKeys( );
-		
-		DiskUI_Finish( );
 	}
     
 	KeyboardIsActive = ! KeyboardIsActive;
@@ -2267,13 +2280,8 @@ LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
 		}
 		case TKP_Close: {
 			/* Wait until key is "released" before closing */
-			if ( Down == falseblnr ) {
-				KeyboardIsActive = falseblnr;
-				CurrentKeyDown = 0;
-				
-				KeyboardSetState( Keyboard_State_Normal );
-				ResetSpecialKeys( );
-			}
+			if ( Down == falseblnr )
+				Keyboard_Close( );
 			
 			return;
 		}
@@ -2293,13 +2301,10 @@ LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
 		}
 		case TKP_InsertDisk: {
 			if ( Down == trueblnr ) {
-				if ( IsInDiskInsertUI == trueblnr ) {
-					DiskUI_Finish( );
-				} else {
-					DiskUI_Start( );
-				}
-				
 				InvertKeyboardTiles( TKP_InsertDisk );
+			} else {
+				DiskUI_Start( );
+				Keyboard_Close( );
 			}
 			
 			return;
@@ -3181,16 +3186,7 @@ LOCALPROC DrawMainScreen( void ) {
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
     
-    if ( IsInDiskInsertUI == trueblnr ) {
-		DiskUI_Update( );
-		
-		iprintf( "\x1b[2J" );
-		iprintf( "Vertex count: %d\n", VertexCount );
-		
-		FontRenderAll( trueblnr );
-	} else {
-    	DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
-	}
+    DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
 }
 
 LOCALPROC DrawSubScreen( void ) {
@@ -3203,9 +3199,14 @@ LOCALPROC DrawSubScreen( void ) {
     C3D_FrameDrawOn( SubRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionSub );
     
-    if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
-    else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
-
+    if ( IsInDiskInsertUI == trueblnr ) {
+    	DiskUI_Draw( );
+		FontRenderAll( trueblnr );
+	} else {
+    	if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
+    	else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
+	}
+	
 #ifdef DEBUG_CONSOLE
     if ( Keys_Held & KEY_X ) {
     	DebugConsoleUpdate( );
@@ -3235,20 +3236,24 @@ LOCALPROC HandleTheEvent( void ) {
         
         Handle3FingerSalute( );
         
-        if ( KeyboardIsActive )
-            Keyboard_Update( );
-        
-        /* Only switch to keyboard mode if the graphics were loaded */
-        if ( ( Keys_Down & KEY_START ) && HaveKeyboardLoaded == trueblnr )
-            Keyboard_Toggle( );
-            
-        /* Pressing X should dismiss all emulator messages */
-        if ( ( Keys_Down & KEY_X ) ) {
-        	MacMsgDisplayOff( );
-        }
-        
-        /* Handle 3DS->Mac key bindings */
-        KeyboardHandle3DSKeyBinds( );
+		if ( KeyboardIsActive )
+			Keyboard_Update( );
+		
+		/* Only switch to keyboard mode if the graphics were loaded */
+		if ( ( Keys_Down & KEY_START ) && HaveKeyboardLoaded == trueblnr )
+			Keyboard_Toggle( );
+			
+		/* Pressing X should dismiss all emulator messages */
+		if ( ( Keys_Down & KEY_X ) ) {
+			MacMsgDisplayOff( );
+		}
+		
+		if ( IsInDiskInsertUI == trueblnr )
+			DiskUI_Update( );
+		
+		/* Handle 3DS->Mac key bindings only if not in a UI */
+		if ( IsInDiskInsertUI == falseblnr )
+			KeyboardHandle3DSKeyBinds( );
         
         UpdateScreenScroll( );
         
