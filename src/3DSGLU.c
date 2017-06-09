@@ -38,6 +38,10 @@ LOCALVAR u32 Keys_Held = 0;
 
 LOCALVAR blnr IsNew3DS = falseblnr;
 
+LOCALVAR blnr gBackgroundFlag = falseblnr;
+LOCALVAR blnr gTrueBackgroundFlag = falseblnr;
+LOCALVAR blnr CurSpeedStopped = trueblnr;
+
 /* --- control mode and internationalization --- */
 
 #define NeedCell2PlainAsciiMap 1
@@ -505,8 +509,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	iprintf( "\x1b[2J" );
-	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	//iprintf( "\x1b[2J" );
+	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 struct Vertex {
@@ -525,11 +529,12 @@ struct Vertex {
 #define Cell_Width 8
 #define Cell_Height 16
 
-#define Font_Max_Vertex 1024
+#define Font_Max_Vertex 4096
 
 u8 ColorBlack[ 4 ] = { 0, 0, 0, 255 };
 u8 ColorGreen[ 4 ] = { 0, 255, 0, 255 };
 u8 ColorAqua[ 4 ] = { 0, 255, 255, 255 };
+u8 ColorWhite[ 4 ] = { 255, 255, 255, 255 };
 
 LOCALVAR struct Vertex* FontVertexList = NULL;
 LOCALVAR blnr HasFontLoaded = falseblnr;
@@ -549,7 +554,7 @@ LOCALVAR rgba32* FontSheetImage = NULL;
  * Z		: Z Coordinate
  * u		: Texcoord 0
  * v		: Texcoord 1
- * Color	: Pointer to an array of 4 floating point color values
+ * Color	: Pointer to an array of 4 unsigned byte color values
  */
 LOCALPROC SetVertex( struct Vertex* Ptr, short X, short Y, short Z, float u, float v, u8* Color ) {
 	Ptr->Position[ 0 ] = X;
@@ -637,63 +642,66 @@ LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8
 	
 	Length = strlen( Str );
 
-	/* Draw background color as 2 triangles with the texture being the full block glyph. */
-	if ( Length > 0 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
-		/* Top left */
-		SetVertex( &Ptr[ 0 ],
-					X,
-					Y,
-					0.6f,
-					GlyphTexCoords[ 0 ][ 0 ],
-					GlyphTexCoords[ 0 ][ 1 ],
-					BGColor );
-	
-		/* Bottom right */
-		SetVertex( &Ptr[ 1 ],
-					( X + ( Length * Cell_Width ) ),
-					( Y + Cell_Height ),
-					0.6f,
-					GlyphTexCoords[ 0 ][ 2 ],
-					GlyphTexCoords[ 0 ][ 3 ],
-					BGColor );
-	
-		/* Top right */
-		SetVertex( &Ptr[ 2 ],
-					( X + ( Length * Cell_Width ) ),
-					Y,
-					0.6f,
-					GlyphTexCoords[ 0 ][ 4 ],
-					GlyphTexCoords[ 0 ][ 5 ],
-					BGColor );
+	/* Do not draw a background quad if we don't have to. */
+	if ( BGColor != NULL ) {
+		/* Draw background color as 2 triangles with the texture being the full block glyph. */
+		if ( Length > 0 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
+			/* Top left */
+			SetVertex( &Ptr[ 0 ],
+						X,
+						Y,
+						0.6f,
+						GlyphTexCoords[ 0 ][ 0 ],
+						GlyphTexCoords[ 0 ][ 1 ],
+						BGColor );
 		
-		/* Top left */
-		SetVertex( &Ptr[ 3 ],
-					X,
-					Y,
-					0.6f,
-					GlyphTexCoords[ 0 ][ 0 ],
-					GlyphTexCoords[ 0 ][ 1 ],
-					BGColor );		
-	
-		/* Bottom left */
-		SetVertex( &Ptr[ 4 ],
-					X,
-					( Y + Cell_Height ),
-					0.6f,
-					GlyphTexCoords[ 0 ][ 6 ],
-					GlyphTexCoords[ 0 ][ 7 ],
-					BGColor );
+			/* Bottom right */
+			SetVertex( &Ptr[ 1 ],
+						( X + ( Length * Cell_Width ) ),
+						( Y + Cell_Height ),
+						0.6f,
+						GlyphTexCoords[ 0 ][ 2 ],
+						GlyphTexCoords[ 0 ][ 3 ],
+						BGColor );
+		
+			/* Top right */
+			SetVertex( &Ptr[ 2 ],
+						( X + ( Length * Cell_Width ) ),
+						Y,
+						0.6f,
+						GlyphTexCoords[ 0 ][ 4 ],
+						GlyphTexCoords[ 0 ][ 5 ],
+						BGColor );
 			
-		/* Bottom right */
-		SetVertex( &Ptr[ 5 ],
-					( X + ( Length * Cell_Width ) ),
-					( Y + Cell_Height ),
-					0.6f,
-					GlyphTexCoords[ 0 ][ 2 ],
-					GlyphTexCoords[ 0 ][ 3 ],
-					BGColor );	
+			/* Top left */
+			SetVertex( &Ptr[ 3 ],
+						X,
+						Y,
+						0.6f,
+						GlyphTexCoords[ 0 ][ 0 ],
+						GlyphTexCoords[ 0 ][ 1 ],
+						BGColor );		
 		
-		VertexCount+= 6;
+			/* Bottom left */
+			SetVertex( &Ptr[ 4 ],
+						X,
+						( Y + Cell_Height ),
+						0.6f,
+						GlyphTexCoords[ 0 ][ 6 ],
+						GlyphTexCoords[ 0 ][ 7 ],
+						BGColor );
+				
+			/* Bottom right */
+			SetVertex( &Ptr[ 5 ],
+						( X + ( Length * Cell_Width ) ),
+						( Y + Cell_Height ),
+						0.6f,
+						GlyphTexCoords[ 0 ][ 2 ],
+						GlyphTexCoords[ 0 ][ 3 ],
+						BGColor );	
+			
+			VertexCount+= 6;
+		}
 	}
 	
 	for ( Length = strlen( Str ), i = 0; i < Length; i++ ) {
@@ -845,6 +853,171 @@ void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, flo
     C3D_ImmDrawEnd( );
 }
 
+/* ===========================
+ * = Start of disk insertion =
+ * ===========================
+*/
+#define MaxFilesInCWD 256
+
+LOCALFUNC blnr Sony_Insert1(char *drivepath, blnr silentfail);
+
+LOCALVAR struct dirent DirectoryEntries[ MaxFilesInCWD ];
+LOCALVAR int NumDirectoryEntries = 0;
+LOCALVAR int SelectedEntry = 0;
+LOCALVAR int ScrollOffset = 0;
+
+LOCALVAR blnr IsInDiskInsertUI = falseblnr;
+LOCALVAR blnr CanScrollDown = falseblnr;
+
+LOCALFUNC int PopulateDirectoryEntries( void ) {
+	struct dirent* Entry = NULL;
+	DIR* CWD = NULL;
+
+	/* Always have the "next level up" directory entry available */
+	snprintf( DirectoryEntries[ 0 ].d_name, sizeof( DirectoryEntries[ 0 ].d_name ), ".." );
+	DirectoryEntries[ 0 ].d_type = DT_DIR;
+	NumDirectoryEntries = 1;
+	
+	if ( ( CWD = opendir( "." ) ) != NULL ) {
+		do {
+			Entry = readdir( CWD );
+			
+			if ( Entry && NumDirectoryEntries < MaxFilesInCWD ) {
+				memcpy( &DirectoryEntries[ NumDirectoryEntries ], Entry, sizeof( struct dirent ) );
+				NumDirectoryEntries++;
+			}
+		}
+		while ( Entry != NULL );
+		
+		closedir( CWD );
+		return 1;
+	}
+
+	return 0;
+}
+
+LOCALPROC DiskUI_Start( void ) {
+	/* Set the clear color to white to spare some vertices when
+	 * drawing the directory listing.
+	 */
+	 C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0xFFFFFFFF, 0 );
+	 IsInDiskInsertUI = trueblnr;
+	 
+	 PopulateDirectoryEntries( );
+	 
+	 SelectedEntry = 0;
+	 ScrollOffset = 0;	 
+}
+
+LOCALPROC DiskUI_Finish( void ) {
+	/* Set clear color back to black */
+	C3D_RenderTargetSetClear( MainRenderTarget, C3D_CLEAR_ALL, 0xFF, 0 );
+	IsInDiskInsertUI = falseblnr;
+}
+
+LOCALPROC DiskUI_DrawEntries( void ) {
+	const int RowsWeCanDisplay = ( MyScreenHeight / Cell_Height ) - 2;
+	const int ColsWeCanDisplay = ( MyScreenWidth / Cell_Width );
+	char LineText[ ColsWeCanDisplay + 1 ];
+	int StartY = Cell_Height * 2;
+	struct dirent* Entry = NULL;	
+	u8* FGColor = NULL;
+	u8* BGColor = NULL;
+	int Y = StartY;
+	int Len = 0;
+	int i = 0;
+	
+	for ( i = ScrollOffset; i < ( RowsWeCanDisplay + ScrollOffset ) && i < NumDirectoryEntries; i++ ) {
+		Entry = &DirectoryEntries[ i ];
+			
+		if ( Entry->d_type == DT_DIR ) {
+			Len = snprintf( LineText, sizeof( LineText ), "[%s]", Entry->d_name );
+		} else {
+			Len = snprintf( LineText, sizeof( LineText ), "%s", Entry->d_name );
+		}
+		
+		if ( i == SelectedEntry ) {
+			FGColor = ColorWhite;
+			BGColor = ColorBlack;
+			
+			memset( &LineText[ Len ], ' ', sizeof( LineText ) - Len );
+			LineText[ ColsWeCanDisplay ] = 0;
+		} else {
+			FGColor = ColorBlack;
+			BGColor = NULL;
+		}		
+		
+		FontDrawString( 0, Y, LineText, FGColor, BGColor );
+		Y+= 16;
+	}
+	
+	/* HACKHACKHACK
+	 * I have no idea how or why this works but I AM DONE WITH IT
+	 */
+	CanScrollDown = ( SelectedEntry > ( RowsWeCanDisplay - 2 ) ) ? trueblnr : falseblnr;
+	
+	/* Don't scroll if we're at the end of the list */
+	if ( SelectedEntry == NumDirectoryEntries - 1 )
+		CanScrollDown = falseblnr;
+}
+
+LOCALPROC DiskUI_DrawBG( void ) {
+	/* 400 / Cell width is 50 chars per line
+	 * Instructions are 32 chars
+	 * So we need 9 space chars on either side
+	 */
+	FontDrawString( 0, 0, "         [A: Choose, B: Go up, X: Cancel]         ", ColorBlack, NULL );
+}
+
+/* Changes to the given directory, repopulates the file list with it's
+ * contents, and resets the selection stuff.
+ */
+LOCALPROC DiskUI_ChangeDir( const char* Dir ) {
+	chdir( Dir );
+	PopulateDirectoryEntries( );
+	
+	SelectedEntry = 0;
+	ScrollOffset = 0;
+}
+
+LOCALPROC DiskUI_Update( void ) {
+	if ( Keys_Down & KEY_DUP ) {
+		SelectedEntry--;
+		
+		if ( ScrollOffset > 0 )
+			ScrollOffset--;
+	}
+		
+	if ( Keys_Down & KEY_DDOWN ) {
+		SelectedEntry++;
+		
+		if ( CanScrollDown )
+			ScrollOffset++;
+	}
+	
+	/* Make sure SelectedEntry stays within range */
+	if ( SelectedEntry < 0 )
+		SelectedEntry = 0;
+	else if ( SelectedEntry >= NumDirectoryEntries - 1 )
+		SelectedEntry = NumDirectoryEntries - 1;
+	
+	if ( Keys_Down & KEY_B ) {
+		DiskUI_ChangeDir( ".." );
+	}
+
+	if ( Keys_Down & KEY_A ) {
+		if ( DirectoryEntries[ SelectedEntry ].d_type == DT_DIR ) {
+			DiskUI_ChangeDir( DirectoryEntries[ SelectedEntry ].d_name );
+		} else if ( DirectoryEntries[ SelectedEntry ].d_type == DT_REG ) {
+			Sony_Insert1( DirectoryEntries[ SelectedEntry ].d_name, falseblnr );
+			DiskUI_Finish( );
+		}
+	}
+
+	DiskUI_DrawBG( );
+	DiskUI_DrawEntries( );
+}
+
 static int Video_SetupRenderTarget( void ) {
     MainRenderTarget = C3D_RenderTargetCreate( 240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8 );
     SubRenderTarget = C3D_RenderTargetCreate( 240, 320, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8 );
@@ -885,6 +1058,7 @@ LOCALVAR const unsigned char vshader_shbin[ ] = {
 	0x10, 0x00, 0x13, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x78, 0x00, 0x78, 0x00, 0x70, 0x72, 0x6f, 0x6a, 
 	0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x00, 0x74, 0x65, 0x73, 0x74, 0x00
 };
+
 static int Video_SetupShader( void ) {
     C3D_AttrInfo* Info = NULL;
     
@@ -1485,10 +1659,6 @@ LOCALVAR blnr UseFullScreen = (WantInitFullScreen != 0);
 LOCALVAR blnr UseMagnify = (WantInitMagnify != 0);
 #endif
 
-LOCALVAR blnr gBackgroundFlag = falseblnr;
-LOCALVAR blnr gTrueBackgroundFlag = falseblnr;
-LOCALVAR blnr CurSpeedStopped = trueblnr;
-
 #if EnableMagnify
 #define MaxScale MyWindowScale
 #else
@@ -1827,26 +1997,6 @@ LOCALPROC Keyboard_DeInit( void ) {
     C3D_TexDelete( &KeyboardTex );
 }
 
-/*
- * This handles mapping the DPAD to the Mac arrow keys.
- * Should be useful for some games.
- */
-#if 0
-LOCALPROC Keyboard_HandleDPAD( void ) {
-    if ( Keys_Down & KEY_DLEFT ) DoKeyCode( TKP_LeftArrow, trueblnr );
-    if ( Keys_Up & KEY_DLEFT ) DoKeyCode( TKP_LeftArrow, falseblnr );
-    
-    if ( Keys_Down & KEY_DRIGHT ) DoKeyCode( TKP_RightArrow, trueblnr );
-    if ( Keys_Up & KEY_DRIGHT ) DoKeyCode( TKP_RightArrow, falseblnr );
-    
-    if ( Keys_Down & KEY_DUP ) DoKeyCode( TKP_UpArrow, trueblnr );
-    if ( Keys_Up & KEY_DUP ) DoKeyCode( TKP_UpArrow, falseblnr );
-    
-    if ( Keys_Down & KEY_DDOWN ) DoKeyCode( TKP_DownArrow, trueblnr );
-    if ( Keys_Up & KEY_DDOWN ) DoKeyCode( TKP_DownArrow, falseblnr );
-}
-#endif
-
 LOCALPROC Keyboard_Update( void ) {
     touchPosition TP;
     
@@ -1865,6 +2015,8 @@ LOCALPROC Keyboard_Toggle( void ) {
 		KeyboardSetState( Keyboard_State_Normal );
 		Keyboard_OnPenUp( NULL );
 		ResetSpecialKeys( );
+		
+		DiskUI_Finish( );
 	}
     
 	KeyboardIsActive = ! KeyboardIsActive;
@@ -2138,7 +2290,20 @@ LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
 			
 			ToggleStickyKey( MKC_Control, Down, &KeyboardControlState );			
 			return;
-		};
+		}
+		case TKP_InsertDisk: {
+			if ( Down == trueblnr ) {
+				if ( IsInDiskInsertUI == trueblnr ) {
+					DiskUI_Finish( );
+				} else {
+					DiskUI_Start( );
+				}
+				
+				InvertKeyboardTiles( TKP_InsertDisk );
+			}
+			
+			return;
+		}
 		case 0: return;
 		default: break;
 	};
@@ -3015,9 +3180,17 @@ LOCALPROC DrawMainScreen( void ) {
     
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
-    DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
-
-	FontRenderAll( falseblnr );
+    
+    if ( IsInDiskInsertUI == trueblnr ) {
+		DiskUI_Update( );
+		
+		iprintf( "\x1b[2J" );
+		iprintf( "Vertex count: %d\n", VertexCount );
+		
+		FontRenderAll( trueblnr );
+	} else {
+    	DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
+	}
 }
 
 LOCALPROC DrawSubScreen( void ) {
