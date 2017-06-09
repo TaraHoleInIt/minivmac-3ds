@@ -865,6 +865,23 @@ LOCALVAR int ScrollOffset = 0;
 LOCALVAR blnr IsInDiskInsertUI = falseblnr;
 LOCALVAR blnr CanScrollDown = falseblnr;
 
+/*
+ * Sorting function that prioritizes directories over files
+ * also while sorting alphabetically.
+ */
+LOCALFUNC int DirectoryEntryCompare( const void* P1, const void* P2 ) {
+	struct dirent* A = ( struct dirent* ) P1;
+	struct dirent* B = ( struct dirent* ) P2;
+	
+	if ( A->d_type == DT_DIR && B->d_type != DT_DIR )
+		return -1;
+		
+	if ( B->d_type == DT_DIR && A->d_type != DT_DIR )
+		return 1;
+
+	return strcasecmp( A->d_name, B->d_name );
+}
+
 LOCALFUNC int PopulateDirectoryEntries( void ) {
 	struct dirent* Entry = NULL;
 	DIR* CWD = NULL;
@@ -884,6 +901,11 @@ LOCALFUNC int PopulateDirectoryEntries( void ) {
 			}
 		}
 		while ( Entry != NULL );
+		
+		/* Sort if we have more than 1 thing to sort */
+		if ( NumDirectoryEntries > 1 ) {
+			qsort( ( void* ) &DirectoryEntries[ 1 ], NumDirectoryEntries - 1, sizeof( struct dirent ), DirectoryEntryCompare );
+		}
 		
 		closedir( CWD );
 		return 1;
