@@ -42,6 +42,8 @@ LOCALVAR blnr gBackgroundFlag = falseblnr;
 LOCALVAR blnr gTrueBackgroundFlag = falseblnr;
 LOCALVAR blnr CurSpeedStopped = trueblnr;
 
+LOCALVAR blnr IsConsoleReady = falseblnr;
+
 /* --- control mode and internationalization --- */
 
 #define NeedCell2PlainAsciiMap 1
@@ -49,7 +51,6 @@ LOCALVAR blnr CurSpeedStopped = trueblnr;
 #include "INTLCHAR.h"
 
 #if dbglog_HAVE
-
 #define dbglog_ToStdErr 1
 
 #if ! dbglog_ToStdErr
@@ -68,6 +69,7 @@ LOCALFUNC blnr dbglog_open0(void)
 
 LOCALPROC dbglog_write0(char *s, uimr L)
 {
+	if ( IsConsoleReady == trueblnr ) {
 #if dbglog_ToStdErr
     (void) fwrite(s, 1, L, stderr);
 #else
@@ -75,6 +77,7 @@ LOCALPROC dbglog_write0(char *s, uimr L)
         (void) fwrite(s, 1, L, dbglog_File);
     }
 #endif
+	}
 }
 
 LOCALPROC dbglog_close0(void)
@@ -1239,6 +1242,7 @@ int DebugConsoleInit( void ) {
         consoleSetWindow( &C3DConsole, 0, 0, MySubScreenWidth / 8, MySubScreenHeight / 8 );
         consoleClear( );
         
+        IsConsoleReady = trueblnr;
         return 1;
     }
     
@@ -1865,6 +1869,7 @@ enum {
 	NumDSKeys
 };
 
+/*
 LOCALVAR const char* const DSKeyNames[ NumDSKeys ] = {
 	"Left",
 	"Right",
@@ -1881,6 +1886,7 @@ LOCALVAR const char* const DSKeyNames[ NumDSKeys ] = {
 	"X",
 	"Y"
 };
+*/
 
 LOCALVAR KeyboardState KeyboardCurrentState = Keyboard_State_Normal;
 
@@ -1902,8 +1908,8 @@ LOCALVAR int DSKeyMapping[ NumDSKeys ] = {
 
 LOCALVAR int CurrentKeyDown = 0;
 
-LOCALVAR blnr KeyboardIsInBindMode = falseblnr;
-LOCALVAR blnr KeyboardIsUppercase = falseblnr;
+/*LOCALVAR blnr KeyboardIsInBindMode = falseblnr;
+LOCALVAR blnr KeyboardIsUppercase = falseblnr;*/
 LOCALVAR blnr KeyboardIsActive = falseblnr;
 
 rgba32* Keyboard_Lowercase_Image = NULL;
@@ -1925,12 +1931,14 @@ LOCALPROC DoKeyCode( int Key, blnr Down );
 LOCALPROC ResetSpecialKeys( void );
 LOCALPROC ToggleScreenScaleMode( void );
 
+/*
 LOCALPROC KeyboardStartBind( void ) {
 }
 
 LOCALPROC KeyboardBind3DSKey( int DSKey, ui3b TouchKey ) {
 	DSKeyMapping[ DSKey ] = TouchKey;
 }
+*/
 
 LOCALPROC DoBoundKey( int DSKey, int KeyMask ) {
 	blnr ShouldDoAThing = falseblnr;
@@ -2490,6 +2498,12 @@ LOCALFUNC blnr InitLocationDat(void)
 	return trueblnr;
 }
 
+LOCALPROC MyDelay( u32 TimeToDelay ) {
+    u64 TimeWhenDone = osGetTime( ) + TimeToDelay;
+    
+    while ( osGetTime( ) < TimeWhenDone );
+}
+
 /* --- sound --- */
 
 #if MySoundEnabled
@@ -2516,8 +2530,8 @@ LOCALFUNC blnr InitLocationDat(void)
 #define kAllBuffMask (kAllBuffLen - 1)
 #define dbhBufferSize (kAllBuffSz + kOneBuffSz)
 
-#define dbglog_SoundStuff (0 && dbglog_HAVE)
-#define dbglog_SoundBuffStats (0 && dbglog_HAVE)
+#define dbglog_SoundStuff (1 && dbglog_HAVE)
+#define dbglog_SoundBuffStats (1 && dbglog_HAVE)
 
 LOCALVAR tpSoundSamp TheSoundBuffer = nullpr;
 volatile static ui4b ThePlayOffset;
@@ -2527,6 +2541,11 @@ volatile static ui4b MinFilledSoundBuffs;
 LOCALVAR ui4b MaxFilledSoundBuffs;
 #endif
 LOCALVAR ui4b TheWriteOffset;
+
+LOCALVAR s16* DSPAudioBuffer = NULL;
+
+LOCALVAR ndspWaveBuf DSPWaveBufs[ 2 ];
+LOCALVAR int CurrentWaveBuf = 0;
 
 LOCALPROC MySound_Init0(void)
 {
@@ -2544,7 +2563,7 @@ LOCALPROC MySound_Start0(void)
 #endif
 }
 
-GLOBALFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
+GLOBALOSGLUFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
 {
 	ui4b ToFillLen = kAllBuffLen - (TheWriteOffset - ThePlayOffset);
 	ui4b WriteBuffContig =
@@ -2719,7 +2738,7 @@ struct MySoundR {
 };
 typedef struct MySoundR MySoundR;
 
-static void my_audio_callback(void *udata, Uint8 *stream, int len)
+static void my_audio_callback(void *udata, s16 *stream, int len)
 {
 	ui4b ToPlayLen;
 	ui4b FilledSoundBuffs;
@@ -2863,12 +2882,12 @@ label_retry:
 			dbglog_writeln("busy, so sleep");
 #endif
 
-			(void) SDL_Delay(10);
+			MyDelay( 10 );
 
 			goto label_retry;
 		}
 
-		SDL_PauseAudio(1);
+		//SDL_PauseAudio(1);
 	}
 
 #if dbglog_SoundStuff
@@ -2884,21 +2903,80 @@ LOCALPROC MySound_Start(void)
 		cur_audio.HaveStartedPlaying = falseblnr;
 		cur_audio.wantplaying = trueblnr;
 
-		SDL_PauseAudio(0);
+		//SDL_PauseAudio(0);
 	}
 }
 
-LOCALPROC MySound_UnInit(void)
-{
-	if (HaveSoundOut) {
-		SDL_CloseAudio();
+LOCALPROC MySound_UnInit( void ) {
+	if ( HaveSoundOut == trueblnr ) {
+		linearFree( DSPAudioBuffer );
+		ndspExit( );
 	}
 }
 
-#define SOUND_SAMPLERATE 22255 /* = round(7833600 * 2 / 704) */
+#define SOUND_SAMPLERATE 22255 /*= round(7833600 * 2 / 704) */
+#define SampleCount 1024
 
-LOCALFUNC blnr MySound_Init(void)
-{
+LOCALPROC DSPThreadCallback( void* Param ) {
+	if ( HaveSoundOut == trueblnr ) {
+		if ( DSPWaveBufs[ CurrentWaveBuf ].status == NDSP_WBUF_DONE ) {
+			my_audio_callback( Param, ( s16* ) DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, SampleCount );
+			DSP_FlushDataCache( DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, SampleCount );
+			
+			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ CurrentWaveBuf ] );
+			CurrentWaveBuf = ! CurrentWaveBuf;
+		}
+	}
+}
+		
+
+LOCALFUNC blnr MySound_Init( void ) {
+	float Mix[ 12 ] = { 
+		1.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0
+	};
+
+	MySound_Init0( );
+	
+	cur_audio.fTheSoundBuffer = TheSoundBuffer;
+	cur_audio.fPlayOffset = &ThePlayOffset;
+	cur_audio.fFillOffset = &TheFillOffset;
+	cur_audio.fMinFilledSoundBuffs = &MinFilledSoundBuffs;
+	cur_audio.wantplaying = falseblnr;
+	
+	if ( R_SUCCEEDED( ndspInit( ) ) ) {
+		DSPAudioBuffer = ( s16* ) linearAlloc( SampleCount * sizeof( s16 ) * 2 );
+		
+		if ( DSPAudioBuffer != NULL ) {
+			memset( DSPAudioBuffer, 0, SampleCount * sizeof( s16 ) * 2 );
+			memset( DSPWaveBufs, 0, sizeof( DSPWaveBufs ) );
+			
+			ndspSetOutputMode( NDSP_OUTPUT_MONO );
+			ndspChnSetInterp( 0, NDSP_INTERP_LINEAR );
+			ndspChnSetRate( 0, SOUND_SAMPLERATE );
+			ndspChnSetFormat( 0, NDSP_FORMAT_MONO_PCM16 );
+			ndspChnSetMix( 0, Mix );
+			
+			DSPWaveBufs[ 0 ].data_vaddr = DSPAudioBuffer;
+			DSPWaveBufs[ 0 ].nsamples = SampleCount;
+			
+			DSPWaveBufs[ 1 ].data_vaddr = &DSPAudioBuffer[ SampleCount ];
+			DSPWaveBufs[ 1 ].nsamples = SampleCount;
+			
+			HaveSoundOut = trueblnr;
+			MySound_Start( );
+			
+			my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 0 ].data_vaddr, SampleCount );
+			my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 1 ].data_vaddr, SampleCount );
+		
+			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ 0 ] );
+			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ 1 ] );
+			
+			ndspSetCallback( DSPThreadCallback, &cur_audio );
+		}
+	}
+#if 0
 	SDL_AudioSpec desired;
 
 	MySound_Init0();
@@ -2937,11 +3015,12 @@ LOCALFUNC blnr MySound_Init(void)
 				start early.
 			*/
 	}
+#endif
 
 	return trueblnr; /* keep going, even if no sound */
 }
 
-GLOBALPROC MySound_EndWrite(ui4r actL)
+GLOBALOSGLUPROC MySound_EndWrite(ui4r actL)
 {
 	if (MySound_EndWrite0(actL)) {
 	}
@@ -3499,12 +3578,6 @@ LOCALPROC WaitForTheNextEvent(void)
 LOCALPROC CheckForSystemEvents(void)
 {
     HandleTheEvent( );
-}
-
-void MyDelay( u32 TimeToDelay ) {
-    u64 TimeWhenDone = osGetTime( ) + TimeToDelay;
-    
-    while ( osGetTime( ) < TimeWhenDone );
 }
 
 GLOBALPROC WaitForNextTick(void)
