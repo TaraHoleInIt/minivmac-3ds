@@ -80,6 +80,20 @@ LOCALPROC dbglog_write0(char *s, uimr L)
 	}
 }
 
+#include <stdarg.h>
+
+/* Workaround to get debug messages during runtime */
+LOCALPROC dbglog_writenow( const char* Fmt, ... ) {
+	static char Text[ 1024 ];
+	va_list Argp;
+	
+	va_start( Argp, Fmt );
+		vsnprintf( Text, sizeof( Text ), Fmt, Argp );
+	va_end( Argp );
+	
+	printf( "%s\n", Text );
+}
+
 LOCALPROC dbglog_close0(void)
 {
 #if ! dbglog_ToStdErr
@@ -2575,7 +2589,7 @@ GLOBALOSGLUFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
 	if (ToFillLen < n) {
 		/* overwrite previous buffer */
 #if dbglog_SoundStuff
-		dbglog_writeln("sound buffer over flow");
+		dbglog_writenow("sound buffer over flow");
 #endif
 		TheWriteOffset -= kOneBuffLen;
 	}
@@ -2605,7 +2619,7 @@ LOCALPROC MySound_WroteABlock(void)
 #endif
 
 #if dbglog_SoundStuff
-	dbglog_writeln("enter MySound_WroteABlock");
+	//dbglog_writenow("enter MySound_WroteABlock");
 #endif
 
 	ConvertSoundBlockToNative(p);
@@ -2649,19 +2663,19 @@ LOCALPROC MySound_SecondNotify0(void)
 	if (MinFilledSoundBuffs <= kSoundBuffers) {
 		if (MinFilledSoundBuffs > DesiredMinFilledSoundBuffs) {
 #if dbglog_SoundStuff
-			dbglog_writeln("MinFilledSoundBuffs too high");
+			dbglog_writenow("MinFilledSoundBuffs too high");
 #endif
 			IncrNextTime();
 		} else if (MinFilledSoundBuffs < DesiredMinFilledSoundBuffs) {
 #if dbglog_SoundStuff
-			dbglog_writeln("MinFilledSoundBuffs too low");
+			dbglog_writenow("MinFilledSoundBuffs too low");
 #endif
 			++TrueEmulatedTime;
 		}
 #if dbglog_SoundBuffStats
-		dbglog_writelnNum("MinFilledSoundBuffs",
+		dbglog_writenow("MinFilledSoundBuffs",
 			MinFilledSoundBuffs);
-		dbglog_writelnNum("MaxFilledSoundBuffs",
+		dbglog_writenow("MaxFilledSoundBuffs",
 			MaxFilledSoundBuffs);
 		MaxFilledSoundBuffs = 0;
 #endif
@@ -2755,8 +2769,8 @@ static void my_audio_callback(void *udata, s16 *stream, int len)
 #endif
 
 #if dbglog_SoundStuff
-	dbglog_writeln("Enter my_audio_callback");
-	dbglog_writelnNum("len", len);
+	//dbglog_writenow("Enter my_audio_callback");
+	//dbglog_writelnNum("len", len);
 #endif
 
 label_retry:
@@ -2765,7 +2779,7 @@ label_retry:
 
 	if (! datp->wantplaying) {
 #if dbglog_SoundStuff
-		dbglog_writeln("playing end transistion");
+		dbglog_writenow("playing end transistion");
 #endif
 
 		SoundRampTo(&v1, kCenterTempSound, &dst, &len);
@@ -2773,7 +2787,7 @@ label_retry:
 		ToPlayLen = 0;
 	} else if (! datp->HaveStartedPlaying) {
 #if dbglog_SoundStuff
-		dbglog_writeln("playing start block");
+		dbglog_writenow("playing start block");
 #endif
 
 		if ((ToPlayLen >> kLnOneBuffLen) < 8) {
@@ -2784,14 +2798,14 @@ label_retry:
 			trSoundTemp v2 = ConvertTempSoundSampleFromNative(*p);
 
 #if dbglog_SoundStuff
-			dbglog_writeln("have enough samples to start");
+			dbglog_writenow("have enough samples to start");
 #endif
 
 			SoundRampTo(&v1, v2, &dst, &len);
 
 			if (v1 == v2) {
 #if dbglog_SoundStuff
-				dbglog_writeln("finished start transition");
+				dbglog_writenow("finished start transition");
 #endif
 
 				datp->HaveStartedPlaying = trueblnr;
@@ -2808,7 +2822,7 @@ label_retry:
 	} else if (0 == ToPlayLen) {
 
 #if dbglog_SoundStuff
-		dbglog_writeln("under run");
+		dbglog_writenow("under run");
 #endif
 
 		for (i = 0; i < len; ++i) {
@@ -2851,7 +2865,7 @@ LOCALVAR blnr HaveSoundOut = falseblnr;
 LOCALPROC MySound_Stop(void)
 {
 #if dbglog_SoundStuff
-	dbglog_writeln("enter MySound_Stop");
+	dbglog_writenow("enter MySound_Stop");
 #endif
 
 	if (cur_audio.wantplaying && HaveSoundOut) {
@@ -2862,13 +2876,13 @@ LOCALPROC MySound_Stop(void)
 label_retry:
 		if (kCenterTempSound == cur_audio.lastv) {
 #if dbglog_SoundStuff
-			dbglog_writeln("reached kCenterTempSound");
+			dbglog_writenow("reached kCenterTempSound");
 #endif
 
 			/* done */
 		} else if (0 == --retry_limit) {
 #if dbglog_SoundStuff
-			dbglog_writeln("retry limit reached");
+			dbglog_writenow("retry limit reached");
 #endif
 			/* done */
 		} else
@@ -2879,7 +2893,7 @@ label_retry:
 			*/
 
 #if dbglog_SoundStuff
-			dbglog_writeln("busy, so sleep");
+			dbglog_writenow("busy, so sleep");
 #endif
 
 			MyDelay( 10 );
@@ -2891,7 +2905,7 @@ label_retry:
 	}
 
 #if dbglog_SoundStuff
-	dbglog_writeln("leave MySound_Stop");
+	dbglog_writenow("leave MySound_Stop");
 #endif
 }
 
@@ -2929,7 +2943,6 @@ LOCALPROC DSPThreadCallback( void* Param ) {
 	}
 }
 		
-
 LOCALFUNC blnr MySound_Init( void ) {
 	float Mix[ 12 ] = { 
 		1.0, 1.0, 0.0, 0.0,
