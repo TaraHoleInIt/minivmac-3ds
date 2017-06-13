@@ -2526,7 +2526,7 @@ LOCALPROC MyDelay( u32 TimeToDelay ) {
 #define kSoundBuffers (1 << kLn2SoundBuffers)
 #define kSoundBuffMask (kSoundBuffers - 1)
 
-#define DesiredMinFilledSoundBuffs 3
+#define DesiredMinFilledSoundBuffs 4
 	/*
 		if too big then sound lags behind emulation.
 		if too small then sound will have pauses.
@@ -2589,7 +2589,7 @@ GLOBALOSGLUFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
 	if (ToFillLen < n) {
 		/* overwrite previous buffer */
 #if dbglog_SoundStuff
-		dbglog_writenow("sound buffer over flow");
+		//dbglog_writenow("sound buffer over flow");
 #endif
 		TheWriteOffset -= kOneBuffLen;
 	}
@@ -2673,9 +2673,9 @@ LOCALPROC MySound_SecondNotify0(void)
 			++TrueEmulatedTime;
 		}
 #if dbglog_SoundBuffStats
-		dbglog_writenow("MinFilledSoundBuffs",
+		dbglog_writenow("MinFilledSoundBuffs %d",
 			MinFilledSoundBuffs);
-		dbglog_writenow("MaxFilledSoundBuffs",
+		dbglog_writenow("MaxFilledSoundBuffs %d",
 			MaxFilledSoundBuffs);
 		MaxFilledSoundBuffs = 0;
 #endif
@@ -2752,7 +2752,7 @@ struct MySoundR {
 };
 typedef struct MySoundR MySoundR;
 
-static void my_audio_callback(void *udata, s16 *stream, int len)
+static void my_audio_callback(void *udata, u8 *stream, int len)
 {
 	ui4b ToPlayLen;
 	ui4b FilledSoundBuffs;
@@ -2934,7 +2934,8 @@ LOCALPROC MySound_UnInit( void ) {
 LOCALPROC DSPThreadCallback( void* Param ) {
 	if ( HaveSoundOut == trueblnr ) {
 		if ( DSPWaveBufs[ CurrentWaveBuf ].status == NDSP_WBUF_DONE ) {
-			my_audio_callback( Param, ( s16* ) DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, SampleCount );
+			my_audio_callback( Param, ( u8* ) DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, SampleCount * 2 );
+			//memset( ( void* ) DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, 0, SampleCount * 2 );
 			DSP_FlushDataCache( DSPWaveBufs[ CurrentWaveBuf ].data_vaddr, SampleCount );
 			
 			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ CurrentWaveBuf ] );
@@ -2980,8 +2981,8 @@ LOCALFUNC blnr MySound_Init( void ) {
 			HaveSoundOut = trueblnr;
 			MySound_Start( );
 			
-			my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 0 ].data_vaddr, SampleCount );
-			my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 1 ].data_vaddr, SampleCount );
+			//my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 0 ].data_vaddr, SampleCount );
+			//my_audio_callback( &cur_audio, ( s16* ) DSPWaveBufs[ 1 ].data_vaddr, SampleCount );
 		
 			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ 0 ] );
 			ndspChnWaveBufAdd( 0, &DSPWaveBufs[ 1 ] );
