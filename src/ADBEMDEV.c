@@ -135,12 +135,13 @@ GLOBALPROC ADB_DoNewState(void)
 				break;
 			case 3: /* idle */
 				if (ADB_ListenDatBuf) {
-					ReportAbnormal("ADB idle follows listen");
+					ReportAbnormalID(0x0C04, "ADB idle follows listen");
 					/* apparently doesn't happen */
 				}
 				if (ADB_TalkDatBuf) {
 					if (ADB_IndexDatBuf != 0) {
-						ReportAbnormal("idle when not done talking");
+						ReportAbnormalID(0x0C05,
+							"idle when not done talking");
 					}
 					ADB_ShiftOutData(0xFF);
 					/* ADB_Int = 0; */

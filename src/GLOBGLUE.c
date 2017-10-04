@@ -914,9 +914,11 @@ LOCALPROC SetUp_address24(void)
 {
 	ATTer r;
 
+#if 0
 	if (MemOverlay) {
 		ReportAbnormalID(0x1105, "Overlay with 24 bit addressing");
 	}
+#endif
 
 	if (MemOverlay) {
 		r.cmpmask = Overlay_ROM_CmpZeroMask |

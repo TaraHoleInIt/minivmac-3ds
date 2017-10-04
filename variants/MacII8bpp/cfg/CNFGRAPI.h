@@ -28,8 +28,8 @@
 #define WantInitMagnify 0
 #define EnableMagnify 0
 #define UseColorImage 1
-#define WantInitRunInBackground 0
-#define WantInitNotAutoSlow 0
+#define WantInitRunInBackground 1
+#define WantInitNotAutoSlow 1
 #define WantInitSpeedValue -1
 #define NeedRequestInsertDisk 0
 #define NeedDoMoreCommandsMsg 0
@@ -42,7 +42,7 @@
 
 #define NeedIntlChars 0
 #define kStrAppName "Mini vMac"
-#define kAppVariationStr "Mini vMac 3DS MacII-8bpp"
+#define kAppVariationStr "minivmac-3ds"
 #define kStrCopyrightYear "2017"
 #define kMaintainerName "Tara Keeling"
-#define kStrHomePage "https://github.com/TaraHoleInIt"
+#define kStrHomePage "https://www.github.com/TaraHoleInIt"

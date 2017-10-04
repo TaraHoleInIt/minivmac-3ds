@@ -1,0 +1,23 @@
+﻿-t larm
+-e mvc
+-m II
+-hres 512
+-vres 384
+-depth 2
+-fullscreen 1
+-var-fullscreen 0
+-mf 1
+-sound 0
+-sss 4
+-speed a
+-bg 1
+-as 0
+-ta 0
+-min-extn
+-maintainer "Tara Keeling"
+-homepage "https://www.github.com/TaraHoleInIt"
+-n "minivmac-3ds"
+-an "mnvm3ds"
+-all-src 1
+-cfg 1
+-arc zip

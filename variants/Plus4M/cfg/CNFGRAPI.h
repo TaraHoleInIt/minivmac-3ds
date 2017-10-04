@@ -41,7 +41,7 @@
 
 #define NeedIntlChars 0
 #define kStrAppName "Mini vMac"
-#define kAppVariationStr "Mini vMac 3DS Plus4M"
+#define kAppVariationStr "minivmac-3ds"
 #define kStrCopyrightYear "2017"
 #define kMaintainerName "Tara Keeling"
-#define kStrHomePage "https://github.com/TaraHoleInIt"
+#define kStrHomePage "https://www.github.com/TaraHoleInIt"

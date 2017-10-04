@@ -79,7 +79,7 @@ typedef unsigned long long ui6b;
 #define MySoundEnabled 0
 
 #define MySoundRecenterSilence 0
-#define kLn2SoundSampSz 3
+#define kLn2SoundSampSz 4
 
 #define dbglog_HAVE 0
 

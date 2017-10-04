@@ -380,6 +380,7 @@ LOCALPROC MacMsgDisplayOff(void)
 {
 	SpecialModeClr(SpclModeMessage);
 	SavedBriefMsg = nullpr;
+	SavedIDMsg = 0;
 	NeedWholeScreenDraw = trueblnr;
 }
 
