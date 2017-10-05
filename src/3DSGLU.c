@@ -342,6 +342,7 @@ static u16* TempTextureBuffer = NULL;
 void UI_UploadTexture32( void* ImageData, C3D_Tex* Texture, int Width, int Height ) {
     GSPGPU_FlushDataCache( ImageData, Width * Height * sizeof( rgba32 ) );
     C3D_SafeDisplayTransfer( ( u32* ) ImageData, GX_BUFFER_DIM( Width, Height ), ( u32* ) Texture->data, GX_BUFFER_DIM( Width, Height ), TEXTURE32_TRANSFER_FLAGS );
+	gspWaitForPPF( );
 }
 
 /* Hack, here for cleaner code later on */
@@ -526,8 +527,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	//iprintf( "\x1b[2J" );
-	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	iprintf( "\x1b[2J" );
+	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 struct Vertex {
@@ -1282,7 +1283,7 @@ void DebugConsoleUpdate( void ) {
         }
     
         GSPGPU_FlushDataCache( ConsoleTextureBuffer, 256 * 512 * 2 );
-        C3D_SafeDisplayTransfer( ( u32* ) ConsoleTextureBuffer, GX_BUFFER_DIM( 256, 512 ), ( u32* ) ConsoleTex.data, GX_BUFFER_DIM( 256, 512 ), CONSOLE_TEXTURE_TRANSFER_FLAGS );
+        GX_DisplayTransfer( ( u32* ) ConsoleTextureBuffer, GX_BUFFER_DIM( 256, 512 ), ( u32* ) ConsoleTex.data, GX_BUFFER_DIM( 256, 512 ), CONSOLE_TEXTURE_TRANSFER_FLAGS );
         
         ConsoleDirty = 0;
     }
@@ -3296,7 +3297,7 @@ LOCALPROC DrawMainScreen( void ) {
     else C3D_TexSetFilter( &FBTexture, GPU_LINEAR, GPU_LINEAR );
     
     GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 2 );
-	C3D_SafeDisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE_TRANSFER_FLAGS );
+	GX_DisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE_TRANSFER_FLAGS );
     
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
