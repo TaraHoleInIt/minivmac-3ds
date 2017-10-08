@@ -148,11 +148,6 @@ GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 #define MySubScreenWidth 320
 #define MySubScreenHeight 240
 
-/*
- * Lookup table used for indexed->RGB565
- */
-static u16 FBConvTable[ 256 ][ 8 ];
-
 C3D_RenderTarget* MainRenderTarget = NULL;
 C3D_RenderTarget* SubRenderTarget = NULL;
 
@@ -337,13 +332,14 @@ rgba32* LoadPNG( const char* Path, int* OutWidth, int* OutHeight ) {
     return NULL;
 }
 
-static u16* TempTextureBuffer = NULL;
+static u32* TempTextureBuffer = NULL;
 
 void UI_UploadTexture32( void* ImageData, C3D_Tex* Texture, int Width, int Height ) {
     GSPGPU_FlushDataCache( ImageData, Width * Height * sizeof( rgba32 ) );
-    C3D_SafeDisplayTransfer( ( u32* ) ImageData, GX_BUFFER_DIM( Width, Height ), ( u32* ) Texture->data, GX_BUFFER_DIM( Width, Height ), TEXTURE32_TRANSFER_FLAGS );
-	gspWaitForPPF( );
+    GX_DisplayTransfer( ( u32* ) ImageData, GX_BUFFER_DIM( Width, Height ), ( u32* ) Texture->data, GX_BUFFER_DIM( Width, Height ), TEXTURE32_TRANSFER_FLAGS );
 }
+
+#define RGBA8( r, g, b, a ) ( ( ( r & 0xFF ) << 24 ) | ( ( g & 0xFF ) << 16 ) | ( ( b & 0xFF ) << 8 ) | ( a & 0xFF ) )
 
 /* Hack, here for cleaner code later on */
 #if vMacScreenDepth == 0
@@ -354,120 +350,109 @@ int VideoGetBPP( void ) {
 	return UseColorMode ? ( 1 << vMacScreenDepth ) : 1;
 }
 
+u32 Table1BPP[ 256 ][ 8 ];
+
+#if vMacScreenDepth == 2
+u64 Table4BPP[ 256 ];
+#elif vMacScreenDepth == 3
+u32 Table8BPP[ 256 ];
+#endif
+
 /*
- * Converts a 1bpp packed image and outputs it in RGB555A1 format.
+ * Converts a 1bpp packed image and outputs it in RGBA8 format.
  */
 void Convert1BPP( u8* Src, u32* Dest, int Size ) {
-	while ( Size-- ) {
-		memcpy( Dest, FBConvTable[ *Src ], sizeof( u32 ) * 4 );
+	do {
+		memcpy( Dest, Table1BPP[ *Src++ ], sizeof( u32 ) * 8 );
 		
-		Dest+= 4;
-		Src++;
+		Dest+= 8;
+		Size-= 8;
 	}
+	while ( Size > 0 );
 }
 
 /*
- * Sets up the 1BPP->RGB565 conversion table.
+ * Sets up the 1BPP->RGBA8 conversion table.
  */
 LOCALPROC MakeTable1BPP( void ) {
-	u16* Temp = NULL;
 	int i = 0;
 	
-	for ( i = 0; i < 256; i++ ) {	
-		Temp = ( u16* ) FBConvTable[ i ];
-		
-		Temp[ 0 ] = ( i & BIT( 7 ) ) ? 0 : 0xFFFF;
-		Temp[ 1 ] = ( i & BIT( 6 ) ) ? 0 : 0xFFFF;
-		Temp[ 2 ] = ( i & BIT( 5 ) ) ? 0 : 0xFFFF;
-		Temp[ 3 ] = ( i & BIT( 4 ) ) ? 0 : 0xFFFF;
-		Temp[ 4 ] = ( i & BIT( 3 ) ) ? 0 : 0xFFFF;
-		Temp[ 5 ] = ( i & BIT( 2 ) ) ? 0 : 0xFFFF;
-		Temp[ 6 ] = ( i & BIT( 1 ) ) ? 0 : 0xFFFF;
-		Temp[ 7 ] = ( i & BIT( 0 ) ) ? 0 : 0xFFFF;
-	}
+	for ( i = 0; i < 256; i++ ) {
+		Table1BPP[ i ][ 0 ] = ( i & BIT( 7 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 1 ] = ( i & BIT( 6 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 2 ] = ( i & BIT( 5 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 3 ] = ( i & BIT( 4 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 4 ] = ( i & BIT( 3 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 5 ] = ( i & BIT( 2 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 6 ] = ( i & BIT( 1 ) ) ? 0 : 0xFFFFFFFF;
+		Table1BPP[ i ][ 7 ] = ( i & BIT( 0 ) ) ? 0 : 0xFFFFFFFF;	
+	}	
 }
 
+#if vMacScreenDepth == 3
 /*
- * Sets up the 8bpp->16bpp paletted to RGB565 conversion table.
+ * Sets up the 8bpp->16bpp paletted to RGBA8 conversion table.
  */
 void MakeTable8BPP( u16* Reds, u16* Greens, u16* Blues ) {
     int i = 0;
     
     for ( i = 0; i < 256; i++ ) {
-        FBConvTable[ i ][ 0 ] = RGB8_to_565( Reds[ i ] >> 8, Greens[ i ] >> 8, Blues[ i ] >> 8 );
+		Table8BPP[ i ] = RGBA8( Reds[ i ] >> 8, Greens[ i ] >> 8, Blues[ i ] >> 8, 0xFF );
     }
 }
 
 /*
- * Converts an 8bpp paletted image and outputs it in RGB565 format.
+ * Converts an 8bpp paletted image and outputs it in RGBA8 format.
  */
-static void Convert8BPP( u8* Src, u16* Dest, int Size ) {
+static void Convert8BPP( u8* Src, u32* Dest, int Size ) {
     while ( Size-- ) {
-        *Dest++ = FBConvTable[ *Src++ ][ 0 ];
+        *Dest++ = Table8BPP[ *Src++ ];
     }
 }
+#endif
 
+#if vMacScreenDepth == 2
 /*
- * Sets up the 4bpp->16bpp paletted to RGB565 conversion table.
+ * Sets up the 4bpp->16bpp paletted to RGBA8 conversion table.
  */
 void MakeTable4BPP( u16* Reds, u16* Greens, u16* Blues ) {
-	u32* TablePtr = ( u32* ) FBConvTable;
-	u32 PixelsOut = 0;
-	int r, g, b = 0;
-	int l, h = 0;
-	int i = 0;
+	int r, g, b, l, h, i = 0;
+	u32* Ptr = NULL;
 	
 	for ( i = 0; i < 256; i++ ) {
 		l = i >> 4;
 		h = i & 0x0F;
 		
-		r = Reds[ l ] >> 11;
-		g = Greens[ l ] >> 10;
-		b = Blues[ l ] >> 11;
+		Ptr = ( u32* ) &Table4BPP[ i ];
 		
-		PixelsOut = RGB565( r, g, b );
+		r = ( Reds[ h ] >> 8 ) & 0xFF;
+		g = ( Greens[ h ] >> 8 ) & 0xFF;
+		b = ( Blues[ h ] >> 8 ) & 0xFF;
 		
-		r = Reds[ h ] >> 11;
-		g = Greens[ h ] >> 10;
-		b = Blues[ h ] >> 11;
+		Ptr[ 1 ] = RGBA8( r, g, b, 0xFF );
 		
-		PixelsOut |= RGB565( r, g, b ) << 16;	
-		TablePtr[ i ] = PixelsOut;
+		r = ( Reds[ l ] >> 8 ) & 0xFF;
+		g = ( Greens[ l ] >> 8 ) & 0xFF;
+		b = ( Blues[ l ] >> 8 ) & 0xFF;
+		
+		Ptr[ 0 ] = RGBA8( r, g, b, 0xFF );
 	}
 }
 
 /*
- * Converts an 4bpp packed image and outputs it in RGB565 format.
+ * Converts an 4bpp packed image and outputs it in RGBA8 format.
  */
-static void Convert4BPP( u8* Src, u16* Dest, int Size ) {
-	u32* TablePtr = ( u32* ) FBConvTable;
-	u32* Temp = ( u32* ) Dest;
-
-    while ( Size-- ) {
-        *Temp++ = TablePtr[ *Src++ ];
-    }
+static void Convert4BPP( u8* Src, u64* Dest, int Size ) {
+	do {
+		*Dest++ = Table4BPP[ *Src++ ];
+		Size-= 2;
+	}
+	while ( Size > 0 );
 }
-
-void ConvertFBTo565( u8* Src, u16* Dest, int Size ) {
-	switch ( VideoGetBPP( ) ) {
-		case 1: {
-			Convert1BPP( Src, ( u32* ) Dest, Size );
-			break;
-		}
-		case 4: {
-			Convert4BPP( Src, Dest, Size );
-			break;
-		}
-		case 8: {
-			Convert8BPP( Src, Dest, Size );
-			break;
-		}
-		default: break;
-	};
-}
+#endif
 
 void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
-	u16* TempBuffer = ( u16* ) TempTextureBuffer;
+	u32* TempBuffer = ( u32* ) TempTextureBuffer;
 	int Offset = 0;
 	int Depth = 0;
 	static u32 Longest = 0;
@@ -478,8 +463,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	
 	if ( Depth == 1 ) {
 		/* 1BPP: Make sure Left and Right are on an 8 pixel boundary */
-		Left = ( Left & ~0x07 );
-		Right = ( ( Right + 8 ) & ~0x07 );
+		Left = ( int ) ( ( unsigned int ) Left & ~0x07 );
+		Right = ( int ) ( ( unsigned int ) ( Right + 8 ) & ~0x07 );
 	} else if ( Depth == 4 ) {
 		// 4BPP: Align to a 2pixel boundary */
 		Left = ( Left & ~1 );
@@ -515,12 +500,20 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Bottom > vMacScreenHeight ) Bottom = vMacScreenHeight;
 	
 	for ( ; Top < Bottom; Top++ ) {
-		TempBuffer =  ( u16* ) &TempTextureBuffer[ ( ( Top * 512 )  + Left ) ];
+		TempBuffer = &( ( u32* ) TempTextureBuffer )[ ( ( Top * 512 ) + Left ) ];
 		Offset = ( ( Top * vMacScreenWidth ) / ( 8 / Depth ) ) + ( Left / ( 8 / Depth ) );
-					
-		ConvertFBTo565( &Src[ Offset ], TempBuffer, ( Right - Left ) );
+
+		if ( Depth == 1 ) {
+			Convert1BPP( &Src[ Offset ], TempBuffer, ( Right - Left ) );
+		} else {
+#if vMacScreenDepth == 2
+			Convert4BPP( &Src[ Offset ], ( u64* ) TempBuffer, ( Right - Left ) );
+#elif vMacScreenDepth == 3
+			Convert8BPP( &Src[ Offset ], TempBuffer, ( Right - Left ) );
+#endif
+		}
 	}
-	
+
 	End = osGetTime( );
 	Taken = End - Start;
 	
@@ -1138,7 +1131,7 @@ static int Video_SetupShader( void ) {
 static int Video_CreateTextures( void ) {
     C3D_TexEnv* Env = NULL;
     
-    C3D_TexInit( &FBTexture, 512, 512, GPU_RGB565 );
+    C3D_TexInit( &FBTexture, 512, 512, GPU_RGBA8 );
     C3D_TexInit( &KeyboardTex, 512, 256, GPU_RGBA8 );
     C3D_TexInit( &FontTex, FontTex_Width, FontTex_Height, GPU_RGBA8 );
     
@@ -1342,7 +1335,7 @@ int Video_Init( void ) {
     
     C3D_DepthTest( true, GPU_GEQUAL, GPU_WRITE_ALL );
     
-    TempTextureBuffer = linearMemAlign( 512 * 512 * 2, 0x80 );
+    TempTextureBuffer = ( u32* ) linearMemAlign( 512 * 512 * 4, 0x80 );
     
 #ifdef DEBUG_CONSOLE
     DebugConsoleInit( );
@@ -3296,8 +3289,8 @@ LOCALPROC DrawMainScreen( void ) {
     if ( ScaleMode == ScaleMode_1to1 ) C3D_TexSetFilter( &FBTexture, GPU_NEAREST, GPU_NEAREST );
     else C3D_TexSetFilter( &FBTexture, GPU_LINEAR, GPU_LINEAR );
     
-    GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 2 );
-	GX_DisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE_TRANSFER_FLAGS );
+    GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 4 );
+	GX_DisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE32_TRANSFER_FLAGS );
     
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
