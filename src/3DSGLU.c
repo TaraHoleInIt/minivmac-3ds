@@ -238,6 +238,7 @@ void ModifyPNGIfWeHaveTo( png_structp PNGHandle, png_infop PNGInfo ) {
         }
     };
     
+	png_set_bgr( PNGHandle );
     png_read_update_info( PNGHandle, PNGInfo );
 }
 
