@@ -51,7 +51,7 @@ LOCALVAR blnr IsConsoleReady = falseblnr;
 #include "INTLCHAR.h"
 
 #if dbglog_HAVE
-#define dbglog_ToStdErr 1
+#define dbglog_ToStdErr 0
 
 #if ! dbglog_ToStdErr
 LOCALVAR FILE *dbglog_File = NULL;
@@ -521,8 +521,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	if ( Taken > Longest )
 		Longest = Taken;
 		
-	iprintf( "\x1b[2J" );
-	iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
+	//iprintf( "\x1b[2J" );
+	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
 
 struct Vertex {
@@ -2432,7 +2432,7 @@ u64 MSAtAppStart = 0;
  * Returns the time in milliseconds since the start of the app
  */
 LOCALFUNC u32 GetMS( void ) {
-    return ( u32 ) osGetTime( );
+    return osGetTime( ) - MSAtAppStart;
 }
 
 LOCALFUNC blnr UpdateTrueEmulatedTime(void)
@@ -3336,6 +3336,9 @@ LOCALPROC HandleTheEvent( void ) {
     if ( aptMainLoop( ) ) {
         hidScanInput( );
         irrstScanInput( );
+
+		//iprintf( "\x1b[2J" );
+		iprintf( "GetMS: %lu\n", ( unsigned long ) GetMS( ) );
         
         Keys_Down = hidKeysDown( );
         Keys_Up = hidKeysUp( );
