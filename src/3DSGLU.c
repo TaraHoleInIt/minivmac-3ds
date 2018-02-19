@@ -334,6 +334,7 @@ rgba32* LoadPNG( const char* Path, int* OutWidth, int* OutHeight ) {
 }
 
 static u32* TempTextureBuffer = NULL;
+LOCALVAR blnr FBTextureNeedsUpdate = falseblnr;
 
 void UI_UploadTexture32( void* ImageData, C3D_Tex* Texture, int Width, int Height ) {
     GSPGPU_FlushDataCache( ImageData, Width * Height * sizeof( rgba32 ) );
@@ -515,6 +516,8 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 		}
 	}
 
+	FBTextureNeedsUpdate = trueblnr;
+
 	End = osGetTime( );
 	Taken = End - Start;
 	
@@ -524,12 +527,6 @@ void Video_UpdateTexture( u8* Src, int Left, int Right, int Top, int Bottom ) {
 	//iprintf( "\x1b[2J" );
 	//iprintf( "FB Took %dms, longest: %dms\n", ( int ) Taken, ( int ) Longest );
 }
-
-struct Vertex {
-	short Position[ 3 ];
-	float Texcoords[ 2 ];
-	u8 Color[ 4 ];
-};
 
 /* =======================================
  * == Beginning of font support section ==
@@ -543,14 +540,24 @@ struct Vertex {
 
 #define Font_Max_Vertex 4096
 
+struct Vertex {
+	short Position[ 3 ];
+	float Texcoords[ 2 ];
+	u8 Color[ 4 ];
+};
+
 u8 ColorBlack[ 4 ] = { 0, 0, 0, 255 };
 u8 ColorWhite[ 4 ] = { 255, 255, 255, 255 };
 
+LOCALVAR struct Vertex* FontVertexList_Main = NULL;
+LOCALVAR struct Vertex* FontVertexList_Sub = NULL;
 LOCALVAR struct Vertex* FontVertexList = NULL;
 LOCALVAR blnr HasFontLoaded = falseblnr;
 
 LOCALVAR float GlyphTexCoords[ 256 ][ 8 ];
-LOCALVAR int VertexCount = 0;
+
+LOCALVAR int VertexCount_Main = 0;
+LOCALVAR int VertexCount_Sub = 0;
 
 LOCALVAR rgba32* FontSheetImage = NULL;
 
@@ -577,12 +584,13 @@ LOCALPROC SetVertex( struct Vertex* Ptr, short X, short Y, short Z, float u, flo
 	memcpy( Ptr->Color, Color, sizeof( u8 ) * 4 );
 }
 
-LOCALFUNC int FontDrawChar( short X, short Y, int Glyph, u8 R, u8 G, u8 B, u8 A ) {
+LOCALFUNC int FontDrawChar( short X, short Y, int Glyph, u8 R, u8 G, u8 B, u8 A, blnr MainScreen ) {
+	int* VertexCount = ( MainScreen == trueblnr ) ? &VertexCount_Main : &VertexCount_Sub;
 	u8 Colors[ 4 ] = { R, G, B, A };
 	struct Vertex* Ptr = NULL;
 
-	if ( Glyph >= 0 && Glyph < 256 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
-		Ptr = &FontVertexList[ VertexCount ];
+	if ( Glyph >= 0 && Glyph < 256 && ( *VertexCount + 6 ) < Font_Max_Vertex ) {
+		Ptr = ( MainScreen == trueblnr ) ? &FontVertexList_Main[ *VertexCount ] : &FontVertexList_Sub[ *VertexCount ];
 		
 		/* Top left */
 		SetVertex( &Ptr[ 0 ],
@@ -638,15 +646,16 @@ LOCALFUNC int FontDrawChar( short X, short Y, int Glyph, u8 R, u8 G, u8 B, u8 A 
 					GlyphTexCoords[ Glyph ][ 3 ],
 					Colors );
 		
-		VertexCount+= 6;
+		*VertexCount+= 6;
 		return 1;
 	}
 	
 	return 0;
 }
 
-LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8* BGColor ) {
-	struct Vertex* Ptr = &FontVertexList[ VertexCount ];
+LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8* BGColor, blnr MainScreen ) {
+	int* VertexCount = ( MainScreen == trueblnr ) ? &VertexCount_Main : &VertexCount_Sub;
+	struct Vertex* Ptr = ( MainScreen == trueblnr ) ? &FontVertexList_Main[ *VertexCount ] : &FontVertexList_Sub[ *VertexCount ];
 	int Length = 0;
 	int i = 0;
 	
@@ -655,7 +664,7 @@ LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8
 	/* Do not draw a background quad if we don't have to. */
 	if ( BGColor != NULL ) {
 		/* Draw background color as 2 triangles with the texture being the full block glyph. */
-		if ( Length > 0 && ( VertexCount + 6 ) < Font_Max_Vertex ) {
+		if ( Length > 0 && ( *VertexCount + 6 ) < Font_Max_Vertex ) {
 			/* Top left */
 			SetVertex( &Ptr[ 0 ],
 						X,
@@ -710,32 +719,42 @@ LOCALFUNC int FontDrawString( short X, short Y, const char* Str, u8* FGColor, u8
 						GlyphTexCoords[ 0 ][ 3 ],
 						BGColor );	
 			
-			VertexCount+= 6;
+			*VertexCount+= 6;
 		}
 	}
 	
-	for ( Length = strlen( Str ), i = 0; i < Length; i++ ) {
-		if ( FontDrawChar( X, Y, Str[ i ], FGColor[ 0 ], FGColor[ 1 ], FGColor[ 2 ], FGColor[ 3 ] ) ) X+= Cell_Width;
-		else break;
+	if ( FGColor != NULL ) {
+		for ( Length = strlen( Str ), i = 0; i < Length; i++ ) {
+			if ( FontDrawChar( X, Y, Str[ i ], FGColor[ 0 ], FGColor[ 1 ], FGColor[ 2 ], FGColor[ 3 ], MainScreen ) ) {
+				X+= Cell_Width;
+			}
+		}
 	}
 	
 	return i;
 }
 
-LOCALPROC FontRenderAll( blnr Clear ) {
+LOCALPROC FontRenderAll( blnr Clear, blnr MainScreen ) {
+	int* VertexCount = ( MainScreen == trueblnr ) ? &VertexCount_Main : &VertexCount_Sub;
+	int VertexOffset = ( MainScreen == trueblnr ) ? Font_Max_Vertex : 0;
+
 	C3D_TexBind( 0, &FontTex );
 
-	if ( VertexCount >= 6 )
-		C3D_DrawArrays( GPU_TRIANGLES, 0, VertexCount );
+	if ( *VertexCount >= 6 ) {
+		C3D_DrawArrays( GPU_TRIANGLES, VertexOffset, *VertexCount );
+	}
 	
 	if ( Clear == trueblnr )
-		VertexCount = 0;
+		*VertexCount = 0;
 }
 
 LOCALFUNC int SetupFontVBuffer( void ) {
 	C3D_BufInfo* BufInfo = NULL;
 
-	FontVertexList = ( struct Vertex* ) linearAlloc( sizeof( struct Vertex ) * Font_Max_Vertex );
+	/* Allocate a buffer twice the size of Font_Max_Vertex so we can use the same vertex buffer for
+	 * both the main and sub screens without needing any fancy buffer management.
+	 */
+	FontVertexList = ( struct Vertex* ) linearAlloc( sizeof( struct Vertex ) * ( Font_Max_Vertex * 2 ) );
 	
 	if ( FontVertexList ) {
 		memset( FontVertexList, 0, sizeof( struct Vertex ) * Font_Max_Vertex );
@@ -745,9 +764,16 @@ LOCALFUNC int SetupFontVBuffer( void ) {
 		if ( BufInfo ) {
 			BufInfo_Init( BufInfo );
 			BufInfo_Add( BufInfo, FontVertexList, sizeof( struct Vertex ), 3, 0x210 );
+
+
+			FontVertexList_Main = &FontVertexList[ Font_Max_Vertex ];
+			FontVertexList_Sub = FontVertexList;
 			
 			return 1;
 		}
+
+		linearFree( FontVertexList );
+		FontVertexList = NULL;
 	}
 
 	return 0;
@@ -818,6 +844,134 @@ LOCALPROC FreeFont( void ) {
 		linearFree( FontVertexList );
 }
 
+/* 
+ * Returns the longest string length within a string containing one or more
+ * newlines. If none are found the length of the input string is returned as-is
+ */
+LOCALFUNC int GetLongestLineLength( const char* String, int* OutLineCount ) {
+	char SavedText[ 1024 ];
+	char* Tok = NULL;
+	int LongestLength = 0;
+	int LineCount = 0;
+	int Length = 0;
+
+	strncpy( SavedText, String, sizeof( SavedText ) );
+	Tok = strtok( SavedText, "\n" );
+
+	/* These are intialized here just in case there are no newlines in
+	 * the string. This handles the string not having any newlines in it.
+	 */
+	if ( Tok == NULL ) {
+		Length = strcspn( SavedText, "\r\n" );
+
+		LongestLength = Length;
+		LineCount = 1;
+	}
+
+	/* While there are newline separated strings to split... */
+	while ( Tok != NULL ) {
+		/* Update the longest length if it's less than the current length */
+		Length = strcspn( Tok, "\r\n" );
+		LongestLength = ( Length > LongestLength ) ? Length : LongestLength;
+		LineCount++;
+
+		/* Next */
+		Tok = strtok( NULL, "\n" );
+	}
+
+	/* If requested, pass the number of newlines parsed to the caller via pointer */
+	if ( OutLineCount != NULL ) {
+		*OutLineCount = LineCount;
+	}
+
+	return LongestLength;
+}
+
+LOCALPROC DrawMainScreenDialog( const char* Title, const char* Text ) {
+	const int ScreenCenterX = ( 400 / 2 );
+	const int ScreenCenterY = ( 240 / 2 );
+	const int CharacterPadding = 1;
+	int LongestLineLength = 0;
+	int TitleTextLength = 0;
+	char SavedText[ 1024 ];
+	char LineText[ 80 ];
+	char* Tok = NULL;
+	int LineCount = 0;
+	int CharsWide = 0;
+	int CharsTall = 0;
+	int LineLen = 0;
+	int x = 0;
+	int y = 0;
+	int i = 0;
+
+	/* Find out how wide the dialog should be */
+	LongestLineLength = GetLongestLineLength( Text, &LineCount );
+	TitleTextLength = strlen( Title );
+	LongestLineLength = ( TitleTextLength > LongestLineLength ) ? TitleTextLength : LongestLineLength;
+
+	/* The width of the dialog box is either the longest newline separated string in (Text) or
+	 * the length of (Title). We also add (CharacterPadding * 2) for padding on either side.
+	 */
+	CharsWide = ( TitleTextLength > LongestLineLength ) ? TitleTextLength : LongestLineLength;
+
+	/* I HATE THIS
+	 * WHY DO I NEED 1 LESS CHARACTER?!
+	 */
+	CharsWide+= ( CharacterPadding * 2 ) + 2 - 1;
+
+	/* 2 Additional characters for top and bottom bars */
+	CharsTall = LineCount + 2 + ( CharacterPadding * 2 );
+
+	x = ScreenCenterX - ( ( CharsWide * Cell_Width ) / 2 ); 
+	y = ScreenCenterY - ( ( CharsTall * Cell_Height ) / 2 );
+
+	/* Draw dialog background first */
+	for ( i = 0; i < CharsTall; i++ ) {
+		if ( i == 0 ) {
+			memset( LineText, '-', CharsWide );
+			memcpy( &LineText[ ( CharsWide / 2 ) - ( TitleTextLength / 2 ) ], Title, TitleTextLength );
+
+			LineText[ 0 ] = '+';
+			LineText[ CharsWide + 0 ] = '+';
+			LineText[ CharsWide + 1 ] = '\0';
+		} else if ( i == ( CharsTall - 1 ) ) {
+			memset( LineText, '-', CharsWide );
+
+			LineText[ 0 ] = '+';
+			LineText[ CharsWide + 0 ] = '+';
+			LineText[ CharsWide + 1 ] = '\0';
+		} else {
+			memset( LineText, ' ', CharsWide );
+
+			LineText[ 0 ] = '|';
+			LineText[ CharsWide + 0 ] = '|';
+			LineText[ CharsWide + 1 ] = '\0';
+		}
+
+		FontDrawString( x, y + ( i * Cell_Height ), LineText, ColorBlack, ColorWhite, trueblnr );
+	}
+
+	/* Draw dialog text */
+	strncpy( SavedText, Text, sizeof( SavedText ) );
+	Tok = strtok( SavedText, "\n" );
+	Tok = ( Tok == NULL ) ? SavedText : Tok;
+	i = 0;
+
+	while ( Tok != NULL ) {
+		/* Evil */
+		FontDrawString( 
+			x + ( CharacterPadding * Cell_Width ) + Cell_Width, 
+			y + ( i * Cell_Height ) + ( CharacterPadding * Cell_Height ) + Cell_Height, 
+			Tok, 
+			ColorBlack, ColorWhite, 
+			trueblnr 
+		);
+
+		Tok = strtok( NULL, "\n" );
+		i++;
+	}
+}
+
 /* =================================
  * == End of font support section ==
  * =================================
@@ -860,7 +1014,7 @@ void DrawTexture( C3D_Tex* Texture, int Width, int Height, float X, float Y, flo
         C3D_ImmSendAttrib( 0, 0, 0, 255 );
     C3D_ImmDrawEnd( );
 }
-
+ 
 /* ===========================
  * = Start of disk insertion =
  * ===========================
@@ -950,7 +1104,7 @@ LOCALPROC DiskUI_Finish( void ) {
 	ScrollOffset = 0;
 	
 	/* Needed? Just make sure... */
-	VertexCount = 0;
+	VertexCount_Sub = 0;
 }
 
 LOCALPROC DiskUI_DrawEntries( void ) {
@@ -985,7 +1139,7 @@ LOCALPROC DiskUI_DrawEntries( void ) {
 			BGColor = NULL;
 		}		
 		
-		FontDrawString( 0, Y, LineText, FGColor, BGColor );
+		FontDrawString( 0, Y, LineText, FGColor, BGColor, falseblnr );
 		Y+= 16;
 	}
 	
@@ -1004,12 +1158,14 @@ LOCALPROC DiskUI_DrawBG( void ) {
 	 * Instructions are 32 chars
 	 * So we need 4 space chars on either side
 	 */
-	FontDrawString( 0, 0, "    [A: Choose, B: Go up, X: Cancel]    ", ColorBlack, NULL );
+	FontDrawString( 0, 0, "    [A: Choose, B: Go up, X: Cancel]    ", ColorBlack, NULL, falseblnr );
 }
 
 LOCALPROC DiskUI_Draw( void ) {
 	DiskUI_DrawBG( );
 	DiskUI_DrawEntries( );
+	
+	DrawMainScreenDialog( "[ Insert disk ]", "Choose a disk image on the screen below\nor press X to cancel\nps im gay" );
 }
 
 /* Changes to the given directory, repopulates the file list with it's
@@ -1707,10 +1863,13 @@ LOCALVAR blnr UseMagnify = (WantInitMagnify != 0);
 #define MaxScale 1
 #endif
 
+LOCALVAR int FramesDrawn = 0;
+
 LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
 	ui4r bottom, ui4r right)
 {
 	Video_UpdateTexture( ( u8* ) GetCurDrawBuff( ), left, right, top, bottom );
+	FramesDrawn++;
 }
 
 LOCALPROC MyDrawChangesAndClear(void)
@@ -1860,6 +2019,14 @@ typedef enum {
     Keyboard_State_Capslock
 } KeyboardState;
 
+typedef enum {
+	KeyboardBindState_Off = 0,
+	KeyboardBindState_GetMacKey,
+	KeyboardBindState_GetOptionalModifier,
+	KeyboardBindState_GetDSKey,
+	KeyboardBindState_Done
+} KeyboardBindState;
+
 enum {
 	DSKey_Left = 0,
 	DSKey_Right,
@@ -1878,24 +2045,87 @@ enum {
 	NumDSKeys
 };
 
-/*
-LOCALVAR const char* const DSKeyNames[ NumDSKeys ] = {
-	"Left",
-	"Right",
-	"Up",
-	"Down",
-	"Start",
-	"Select",
-	"L Trigger",
-	"R Trigger",
-	"ZL Trigger",
-	"ZR Trigger",
-	"A",
-	"B",
-	"X",
-	"Y"
+struct DSKeyInfo {
+	const char* KeyName;
+	int Mask;
 };
-*/
+
+LOCALVAR struct DSKeyInfo DSKeys[ NumDSKeys ] = {
+	{ "Left", KEY_LEFT },
+	{ "Right", KEY_RIGHT },
+	{ "Up", KEY_UP },
+	{ "Down", KEY_DOWN },
+	{ "Start", KEY_START },
+	{ "Select", KEY_SELECT },
+	{ "LTrigger", KEY_L },
+	{ "RTrigger", KEY_R },
+	{ "ZLTrigger", KEY_ZL },
+	{ "ZRTrigger", KEY_ZR },
+	{ "A", KEY_A },
+	{ "B", KEY_B },
+	{ "X", KEY_X },
+	{ "Y", KEY_Y },
+};
+
+LOCALFUNC struct DSKeyInfo* GetCurrentDownDSKey( void ) {
+	if ( Keys_Down & KEY_LEFT ) {
+		return &DSKeys[ DSKey_Left ];
+	}
+
+	if ( Keys_Down & KEY_RIGHT ) {
+		return &DSKeys[ DSKey_Right ];
+	}
+
+	if ( Keys_Down & KEY_UP ) {
+		return &DSKeys[ DSKey_Up ];
+	}
+
+	if ( Keys_Down & KEY_DOWN ) {
+		return &DSKeys[ DSKey_Down ];
+	}
+
+	if ( Keys_Down & KEY_START ) {
+		return &DSKeys[ DSKey_Start ];
+	}
+
+	if ( Keys_Down & KEY_SELECT ) {
+		return &DSKeys[ DSKey_Select ];
+	}
+
+	if ( Keys_Down & KEY_L ) {
+		return &DSKeys[ DSKey_L ];
+	}
+
+	if ( Keys_Down & KEY_R ) {
+		return &DSKeys[ DSKey_R ];
+	}
+
+	if ( Keys_Down & KEY_ZL ) {
+		return &DSKeys[ DSKey_ZL ];
+	}
+
+	if ( Keys_Down & KEY_ZR ) {
+		return &DSKeys[ DSKey_ZR ];
+	}
+
+	if ( Keys_Down & KEY_A ) {
+		return &DSKeys[ DSKey_A ];
+	}
+
+	if ( Keys_Down & KEY_B ) {
+		return &DSKeys[ DSKey_B ];
+	}
+
+	if ( Keys_Down & KEY_X ) {
+		return &DSKeys[ DSKey_X ];
+	}
+
+	if ( Keys_Down & KEY_Y ) {
+		return &DSKeys[ DSKey_Y ];
+	}
+
+	return NULL;
+}
 
 LOCALVAR KeyboardState KeyboardCurrentState = Keyboard_State_Normal;
 
@@ -1917,8 +2147,11 @@ LOCALVAR int DSKeyMapping[ NumDSKeys ] = {
 
 LOCALVAR int CurrentKeyDown = 0;
 
-/*LOCALVAR blnr KeyboardIsInBindMode = falseblnr;
-LOCALVAR blnr KeyboardIsUppercase = falseblnr;*/
+LOCALVAR KeyboardBindState CurrentBindState = KeyboardBindState_Off;
+LOCALVAR int CurrentBindModifierKey = 0;
+LOCALVAR int CurrentBindMacKey = 0;
+LOCALVAR int CurrentBindDSKey = 0;
+
 LOCALVAR blnr KeyboardIsActive = falseblnr;
 
 rgba32* Keyboard_Lowercase_Image = NULL;
@@ -1940,14 +2173,41 @@ LOCALPROC DoKeyCode( int Key, blnr Down );
 LOCALPROC ResetSpecialKeys( void );
 LOCALPROC ToggleScreenScaleMode( void );
 
-/*
 LOCALPROC KeyboardStartBind( void ) {
+	CurrentBindState = KeyboardBindState_GetMacKey;
+	CurrentBindModifierKey = 0;
+	CurrentBindMacKey = 0;
+	CurrentBindDSKey = 0;
+}
+
+LOCALPROC KeyboardBindInputProc( int Input ) {
+	switch ( CurrentBindState ) {
+		case KeyboardBindState_GetMacKey: {
+			CurrentBindState = KeyboardBindState_GetOptionalModifier;
+			CurrentBindMacKey = Input;
+			break;
+		}
+		case KeyboardBindState_GetOptionalModifier: {
+			CurrentBindState = KeyboardBindState_GetDSKey;
+			CurrentBindModifierKey = Input;
+			break;
+		}
+		case KeyboardBindState_GetDSKey: {
+			CurrentBindState = KeyboardBindState_Done;
+			CurrentBindDSKey = Input;
+			break;
+		}
+		default: break;
+	};
+}
+
+LOCALPROC KeyboardFinishBind( void ) {
+	CurrentBindState = KeyboardBindState_Off;
 }
 
 LOCALPROC KeyboardBind3DSKey( int DSKey, ui3b TouchKey ) {
 	DSKeyMapping[ DSKey ] = TouchKey;
 }
-*/
 
 LOCALPROC DoBoundKey( int DSKey, int KeyMask ) {
 	blnr ShouldDoAThing = falseblnr;
@@ -2044,6 +2304,7 @@ LOCALPROC Keyboard_DeInit( void ) {
 }
 
 LOCALPROC Keyboard_Close( void ) {
+	CurrentBindState = KeyboardBindState_Off;
 	KeyboardIsActive = falseblnr;
 	CurrentKeyDown = 0;
 				
@@ -2056,11 +2317,34 @@ LOCALPROC Keyboard_Update( void ) {
     
     touchRead( &TP );
     
-    if ( Keys_Down & KEY_TOUCH )
+    if ( Keys_Down & KEY_TOUCH ) {
         Keyboard_OnPenDown( &TP );
+	}
     
-    if ( Keys_Up & KEY_TOUCH )
+    if ( Keys_Up & KEY_TOUCH ) {
         Keyboard_OnPenUp( &TP );
+	}
+
+	switch ( CurrentBindState ) {
+		case KeyboardBindState_GetMacKey: {
+			DrawMainScreenDialog( "[ Bind key ]", "Step 1: Select a mac key using the keyboard" );
+			break;
+		}
+		case KeyboardBindState_GetOptionalModifier: {
+			DrawMainScreenDialog( "[ Bind key ]", "Step 2: Select modifier key or (n) for none" );
+			break;
+		}
+		case KeyboardBindState_GetDSKey: {
+			DrawMainScreenDialog( "[ Bind key ]", "Step 3: Press 3DS key to bind to" );
+			break;
+		}
+		case KeyboardBindState_Done: {
+			DrawMainScreenDialog( "[ Bind key ]", "Successfully bound key!" );
+			break;
+		}
+		case KeyboardBindState_Off:
+		default: break;
+	};
 }
 
 LOCALPROC Keyboard_Toggle( void ) {
@@ -2068,6 +2352,7 @@ LOCALPROC Keyboard_Toggle( void ) {
 	if ( KeyboardIsActive == trueblnr ) {
 		KeyboardSetState( Keyboard_State_Normal );
 		Keyboard_OnPenUp( NULL );
+		KeyboardFinishBind( );
 		ResetSpecialKeys( );
 	}
     
@@ -2296,6 +2581,17 @@ LOCALPROC DoCapsLock( blnr Down ) {
 }
 
 LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
+	if ( CurrentBindState != KeyboardBindState_Off ) {
+		if ( TouchKey != 0 && TouchKeyToMac[ TouchKey ] >= 0 ) {
+			if ( Down == falseblnr ) {
+				KeyboardBindInputProc( TouchKey );
+			}
+
+			InvertKeyboardTiles( TouchKey );
+			return;
+		}
+	}
+
 	switch ( TouchKey ) {
 		case TKP_Shift:
 			DoShift( Down );
@@ -2346,6 +2642,19 @@ LOCALPROC DoKeyCode( int TouchKey, blnr Down ) {
 				Keyboard_Close( );
 			}
 			
+			return;
+		}
+		case TKP_Bind: {
+			if ( Down == trueblnr ) {
+				InvertKeyboardTiles( TKP_Bind );
+			} else {
+				if ( CurrentBindState == KeyboardBindState_Off ) {
+					KeyboardStartBind( );
+				} else {
+					KeyboardFinishBind( );
+				}
+			}
+
 			return;
 		}
 		case 0: return;
@@ -2984,6 +3293,8 @@ LOCALFUNC blnr MySound_Init( void ) {
 			
 			ndspSetCallback( DSPThreadCallback, &cur_audio );
 		}
+	} else {
+		MacMsg( "Sound", "Missing DSP Firmware binary", falseblnr );
 	}
 #if 0
 	SDL_AudioSpec desired;
@@ -3263,7 +3574,7 @@ LOCALPROC ToggleScreenScaleMode( void ) {
 LOCALPROC UpdateScreenScroll( void ) {
     float MaxScrollX = ( ( ( float ) vMacScreenWidth ) * ScreenScaleW ) - MyScreenWidth;
     float MaxScrollY = ( ( ( float ) vMacScreenHeight ) * ScreenScaleH ) - MyScreenHeight;
-    
+
     ScreenScrollX = ( ( MyScreenWidth / 2 ) - CurMouseH );
     ScreenScrollY = ( ( MyScreenHeight / 2 ) - CurMouseV );
     
@@ -3276,11 +3587,18 @@ LOCALPROC UpdateScreenScroll( void ) {
         if ( ScreenScrollY > 0 ) ScreenScrollY = 0;
     } else {
         /* I'm done fiddling with this for now, but at least it's centered */
-        ScreenScrollX = 20;
+        ScreenScrollX = ( MyScreenWidth / 2 ) - ( ( ( ( float ) vMacScreenWidth ) * ScreenScaleW ) / 2 );
         ScreenScrollY = 0;
     }
-    
-    //printf( "SW: %d SH: %d\n", ScreenScrollX, ScreenScrollY );
+}
+
+LOCALPROC UpdateFBTexture( void ) {
+	if ( FBTextureNeedsUpdate == trueblnr ) {
+		GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 4 );
+		GX_DisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE32_TRANSFER_FLAGS );
+	
+		FBTextureNeedsUpdate = falseblnr;
+	}
 }
 
 LOCALPROC DrawMainScreen( void ) {
@@ -3289,14 +3607,12 @@ LOCALPROC DrawMainScreen( void ) {
      */
     if ( ScaleMode == ScaleMode_1to1 ) C3D_TexSetFilter( &FBTexture, GPU_NEAREST, GPU_NEAREST );
     else C3D_TexSetFilter( &FBTexture, GPU_LINEAR, GPU_LINEAR );
-    
-    GSPGPU_FlushDataCache( TempTextureBuffer, 512 * 512 * 4 );
-	GX_DisplayTransfer( ( u32* ) TempTextureBuffer, GX_BUFFER_DIM( 512, 512 ), ( u32* ) FBTexture.data, GX_BUFFER_DIM( 512, 512 ), TEXTURE32_TRANSFER_FLAGS );
-    
+
     C3D_FrameDrawOn( MainRenderTarget );
     C3D_FVUnifMtx4x4( GPU_VERTEX_SHADER, LocProjectionUniforms, &ProjectionMain );
     
     DrawTexture( &FBTexture, 512, 512, ScreenScrollX, ScreenScrollY, ScreenScaleW, ScreenScaleH );
+	FontRenderAll( trueblnr, trueblnr );
 }
 
 LOCALPROC DrawSubScreen( void ) {
@@ -3311,7 +3627,7 @@ LOCALPROC DrawSubScreen( void ) {
     
     if ( IsInDiskInsertUI == trueblnr ) {
     	DiskUI_Draw( );
-		FontRenderAll( trueblnr );
+		FontRenderAll( trueblnr, falseblnr );
 	} else {
     	if ( KeyboardIsActive ) DrawTexture( &KeyboardTex, 512, 256, 0, 0, 1.0f, 1.0f );
     	else DrawTexture( &FBTexture, 512, 512, 0, 0, SubScaleX, SubScaleY );
@@ -3319,7 +3635,6 @@ LOCALPROC DrawSubScreen( void ) {
 	
 #ifdef DEBUG_CONSOLE
     if ( Keys_Held & KEY_X ) {
-    	DebugConsoleUpdate( );
         DebugConsoleDraw( );
     }
 #endif
@@ -3333,12 +3648,20 @@ LOCALPROC Handle3FingerSalute( void ) {
 }
 
 LOCALPROC HandleTheEvent( void ) {
+	char Buffer[ 256 ];
+	static int FPS = 0;
+	static int i = 0;
+
     if ( aptMainLoop( ) ) {
+		if ( ++i == 60 ) {
+			FPS = FramesDrawn;
+			FramesDrawn = 0;
+
+			i = 0;
+		}
+
         hidScanInput( );
         irrstScanInput( );
-
-		//iprintf( "\x1b[2J" );
-		iprintf( "GetMS: %lu\n", ( unsigned long ) GetMS( ) );
         
         Keys_Down = hidKeysDown( );
         Keys_Up = hidKeysUp( );
@@ -3364,21 +3687,26 @@ LOCALPROC HandleTheEvent( void ) {
 		if ( IsInDiskInsertUI == trueblnr )
 			DiskUI_Update( );
 		
-		/* Handle 3DS->Mac key bindings only if not in a UI */
-		if ( IsInDiskInsertUI == falseblnr )
+		/* Handle 3DS->Mac key bindings only if not in a UI or in key bind mode */
+		if ( IsInDiskInsertUI == falseblnr && CurrentBindState == KeyboardBindState_Off )
 			KeyboardHandle3DSKeyBinds( );
         
         UpdateScreenScroll( );
+		UpdateFBTexture( );
+		
+#ifdef DEBUG_CONSOLE
+		if ( Keys_Held & KEY_X )
+			DebugConsoleUpdate( );
+#endif
         
-        C3D_FrameBegin( C3D_FRAME_SYNCDRAW );
-            DrawMainScreen( );
-            DrawSubScreen( );
-        C3D_FrameEnd( 0 );
-        
-        // printf( "dx: %d, dy: %d\n", dx, dy );
-        
-        //printf( "%d, %d\n", MouseX, MouseY );
-        //printf( "time: %d\n", osGetTime( ) );
+		snprintf( Buffer, sizeof( Buffer ), "FPS: %d", FPS );
+		FontDrawString( 0, 0, Buffer, ColorBlack, ColorWhite, trueblnr );
+
+        if ( C3D_FrameBegin( C3D_FRAME_NONBLOCK ) == true ) {
+        		DrawMainScreen( );
+        		DrawSubScreen( );
+        	C3D_FrameEnd( 0 );
+		}
     } else {
         /* If we're force closing, make sure the emulator exits.
          */
@@ -3708,7 +4036,7 @@ LOCALPROC DoN3DSSpeedup( void ) {
     APT_CheckNew3DS( &Result );
     
     if ( Result ) {
-        osSetSpeedupEnable( true );
+        //osSetSpeedupEnable( true );
     }
     
     IsNew3DS = ( blnr ) Result;
