@@ -49,6 +49,9 @@ LOCALVAR uint32_t Keys_Up = 0;
 #define MainTextureHeight 512
 #define MainTextureSize ( MainTextureWidth * MainTextureHeight * sizeof( uint16_t ) )
 
+#define MainScreenWidth 400
+#define MainScreenHeight 240
+
 // Cobbled together main framebuffer sprite
 LOCALVAR C2D_Sprite ScreenSprite = {
 	.image = ( C2D_Image ) {
@@ -97,9 +100,11 @@ LOCALPROC UpdateFBTexture( size_t Size ) {
 
 LOCALVAR uint16_t UnpackTable_1BPP[ 256 ][ 8 ];
 
-#if vMacScreenDepth > 0
+#if vMacScreenDepth == 1
 LOCALVAR uint16_t UnpackTable_2BPP[ 256 ][ 4 ];
+#elif vMacScreenDepth == 2
 LOCALVAR uint32_t UnpackTable_4BPP[ 256 ];
+#elif vMacScreenDepth == 3
 LOCALVAR uint16_t ConversionTable_8BPP[ 256 ];
 #endif
 
@@ -142,7 +147,7 @@ LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom ) {
 	UpdateFBTexture( MainTextureSize );
 }
 
-#if vMacScreenDepth > 0
+#if vMacScreenDepth == 1
 
 // Generates a lookup table which gives 4 RGB565 pixels
 // for every 4 2bit pixels given per byte
@@ -201,7 +206,9 @@ LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom ) {
 
 	UpdateFBTexture( MainTextureSize );
 }
+#endif
 
+#if vMacScreenDepth == 2
 // Creates a lookup table which converts 2 4bit backed pixels
 // per byte into 2 RGB565 pixels
 LOCALPROC Init_4BPP( void ) {
@@ -249,7 +256,9 @@ LOCALPROC UpdateMainScreen_4BPP( const uint8_t* Src, int Top, int Bottom ) {
 
 	UpdateFBTexture( MainTextureSize );
 }
+#endif
 
+#if vMacScreenDepth == 3
 // Creates the framebuffer conversion table used to convert indexed 8BPP image data to RGB565
 LOCALPROC Init_8BPP( void ) {
 	int r = 0;
@@ -290,8 +299,11 @@ LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom ) {
 /* --- End of framebuffer conversion */
 
 /* --- Main screen creation, destruction, and drawing --- */
+LOCALPROC UpdateScroll( void );
 
 LOCALFUNC bool CreateMainScreen( void ) {
+	bool Result = false;
+
 	MainRenderTarget = C2D_CreateScreenTarget( GFX_TOP, GFX_LEFT );
 
 	if ( MainRenderTarget ) {
@@ -299,11 +311,17 @@ LOCALFUNC bool CreateMainScreen( void ) {
 
 		if ( MainScreenBuffer ) {
 			memset( MainScreenBuffer, 0, MainTextureSize );
-			return C3D_TexInit( ScreenSprite.image.tex, 512, 512, GPU_RGB565 );
+
+			Result = C3D_TexInit( ScreenSprite.image.tex, 512, 512, GPU_RGB565 );
+
+			if ( Result ) {
+				// Starts in unscaled mode, this is needed to prevent artifacts
+				C3D_TexSetFilter( ScreenSprite.image.tex, GPU_NEAREST, GPU_NEAREST );
+			}
 		}
 	}
 
-	return false;
+	return Result;
 }
 
 LOCALPROC DestroyMainScreen( void ) {
@@ -315,8 +333,7 @@ LOCALPROC DestroyMainScreen( void ) {
 }
 
 LOCALPROC DrawMainScreen( void ) {
-	C2D_SpriteSetScale( &ScreenSprite, /*( 400.0f / 512.0f )*/ 0.78125f, ( 240.0f / ( float ) vMacScreenHeight ) );
-	C3D_TexSetFilter( ScreenSprite.image.tex, GPU_LINEAR, GPU_LINEAR );
+	UpdateScroll( );
 
 	C2D_TargetClear( MainRenderTarget, C2D_Color32( 0, 255, 255, 255 ) );
 	C2D_SceneBegin( MainRenderTarget );
@@ -390,13 +407,93 @@ LOCALVAR float MenubarTextY = 0.0f;
 
 LOCALVAR int TouchKeyDown = 0xFF;
 
-LOCALVAR blnr ShiftHeld = false;
-LOCALVAR blnr CommandHeld = false;
-LOCALVAR blnr OptionHeld = false;
-LOCALVAR blnr ControlHeld = false;
-LOCALVAR blnr CapsHeld = false;
+LOCALVAR blnr ShiftHeld = falseblnr;
+LOCALVAR blnr CommandHeld = falseblnr;
+LOCALVAR blnr OptionHeld = falseblnr;
+LOCALVAR blnr ControlHeld = falseblnr;
+LOCALVAR blnr CapsHeld = falseblnr;
+LOCALVAR blnr ScaleHeld = falseblnr;
+
+enum {
+	Scale_1to1 = 0,
+	Scale_Aspect,
+	Scale_Fill,
+	NumScales
+};
+
+#define ScrollMinX 0
+#define ScrollMinY 0
+
+#define ScrollMaxX ( int ) -( ( ( float ) vMacScreenWidth * ScaleX ) - MainScreenWidth )
+#define ScrollMaxY ( int ) -( ( ( float ) vMacScreenHeight * ScaleY ) - MainScreenHeight )
+
+int ScaleMode = Scale_1to1;
+
+float ScaleX = 1.0f;
+float ScaleY = 1.0f;
+
+int ScrollX = 0;
+int ScrollY = 0;
+
+LOCALPROC UpdateScroll( void ) {
+	ScrollX = ( MainScreenWidth / 2 ) - CurMouseH;
+	ScrollY = ( MainScreenHeight / 2 ) - CurMouseV;
+
+	ScrollX = ( ScrollX > 0 ) ? 0 : ScrollX;
+	ScrollY = ( ScrollY > 0 ) ? 0 : ScrollY;
+
+	ScrollX = ( ScrollX <= ScrollMaxX ) ? ScrollMaxX : ScrollX;
+	ScrollY = ( ScrollY <= ScrollMaxY ) ? ScrollMaxY : ScrollY;
+
+	C2D_SpriteSetPos( &ScreenSprite, ScrollX, ScrollY );
+}
 
 LOCALPROC ToggleScale( void ) {
+	if ( ScaleMode >= NumScales ) {
+		ScaleMode = Scale_1to1;
+	} else {
+		ScaleMode++;
+	}
+
+	switch ( ScaleMode ) {
+		case Scale_1to1: {
+			// Needed to prevent artifacts
+			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_NEAREST, GPU_NEAREST );
+			C3D_TexFlush( ScreenSprite.image.tex );
+
+			ScaleX = 1.0f;
+			ScaleY = 1.0f;
+
+			break;
+		}
+		case Scale_Aspect: {
+			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_LINEAR, GPU_LINEAR );
+			C3D_TexFlush( ScreenSprite.image.tex );
+
+			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
+			ScaleY = ScaleX;
+
+			break;
+		}
+		case Scale_Fill: {
+			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_LINEAR, GPU_LINEAR );
+			C3D_TexFlush( ScreenSprite.image.tex );
+
+			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
+			ScaleY = ( ( float ) MainScreenHeight ) / ( ( float ) vMacScreenHeight );
+			
+			break;
+		}
+		default: {
+			ScaleMode = Scale_1to1;
+			ScaleX = 1.0f;
+			ScaleY = 1.0f;
+
+			break;
+		}
+	};
+
+	C2D_SpriteSetScale( &ScreenSprite, ScaleX, ScaleY );
 }
 
 LOCALPROC InsertDisk( void ) {
@@ -509,7 +606,8 @@ LOCALPROC DrawKeyHighlight( int Key ) {
 // Forward declaration needed
 LOCALVAR ui5b theKeys[ ];
 
-LOCALPROC TestSomething( void ) {
+// Highlights all keys that the emulated macintosh sees as down
+LOCALPROC HighlightTheDownKeys( void ) {
 	uint8_t* KeyboardPtr = ( uint8_t* ) theKeys;
 	int MacKey = 0;
 	int i = 0;
@@ -546,13 +644,19 @@ LOCALPROC DrawSubScreen( void ) {
 
     C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 0.5f, 1.0f, 1.0f );
 
+/*
     DrawKeyHighlight( ShiftHeld ? MKC_Shift : 0xFF );
     DrawKeyHighlight( CommandHeld ? MKC_Command : 0xFF );
     DrawKeyHighlight( OptionHeld ? MKC_Option : 0xFF );
     DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
     DrawKeyHighlight( CapsHeld ? MKC_CapsLock : 0xFF );
+*/
 
-	TestSomething( );
+	// This needs special handling?
+    DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
+	DrawKeyHighlight( ScaleHeld ? TM_Scale : 0xFF );
+
+	HighlightTheDownKeys( );
 }
 
 LOCALPROC SubScreenUpdateInput( void ) {
@@ -575,6 +679,12 @@ LOCALPROC SubScreenUpdateInput( void ) {
             case 0xFF: {
                 break;
             }
+			case TM_Scale: {
+				ToggleScale( );
+
+				ScaleHeld = trueblnr;
+				break;
+			}
             default: {
                 DoKeyCode( TouchKeyDown, trueblnr );
                 break;
@@ -588,7 +698,7 @@ LOCALPROC SubScreenUpdateInput( void ) {
                 break;
             }
             case TM_Scale: {
-                ToggleScale( );
+                ScaleHeld = falseblnr;
                 break;
             }
             case TM_Insert: {
@@ -1006,7 +1116,7 @@ LOCALPROC CheckAndUpdateColormap( void ) {
 	if ( UseColorMode ) {
 		Sum = GetColormapChecksum( );
 
-		if ( Sum != LastColormapSum ) {
+		if ( Sum != LastColormapSum || ColorMappingChanged ) {
 			LastColormapSum = Sum;
 			NeedWholeScreenDraw = trueblnr;
 
@@ -1022,11 +1132,10 @@ LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
 	const uint8_t* Src = ( const uint8_t* ) GetCurDrawBuff( );
 
 #if vMacScreenDepth > 0
-	CheckAndUpdateColormap( );
-
 	if ( UseColorMode == false ) {
 		UpdateMainScreen_1BPP( Src, top, bottom );
 	} else {
+		CheckAndUpdateColormap( );
 		UpdateMainScreen( Src, top, bottom );
 	}
 #else
@@ -1249,7 +1358,7 @@ LOCALFUNC blnr InitLocationDat(void)
 #define kSoundBuffers (1 << kLn2SoundBuffers)
 #define kSoundBuffMask (kSoundBuffers - 1)
 
-#define DesiredMinFilledSoundBuffs 3
+#define DesiredMinFilledSoundBuffs 2
 	/*
 		if too big then sound lags behind emulation.
 		if too small then sound will have pauses.
@@ -1326,12 +1435,22 @@ LOCALPROC ConvertSoundBlockToNative(tpSoundSamp p)
 	}
 }
 #else
+#if 0
 #define ConvertSoundBlockToNative(p)
+#else
+LOCALPROC ConvertSoundBlockToNative( tpSoundSamp Ptr ) {
+	int i = 0;
+
+	for ( i = 0; i < kOneBuffLen; i++ ) {
+		*Ptr++-= 0x80;
+	}
+}
+#endif
 #endif
 
 LOCALPROC MySound_WroteABlock(void)
 {
-#if (4 == kLn2SoundSampSz)
+#if (4 == kLn2SoundSampSz || 1)
 	ui4b PrevWriteOffset = TheWriteOffset - kOneBuffLen;
 	tpSoundSamp p = TheSoundBuffer + (PrevWriteOffset & kAllBuffMask);
 #endif
@@ -1340,7 +1459,7 @@ LOCALPROC MySound_WroteABlock(void)
 	dbglog_writeln("enter MySound_WroteABlock");
 #endif
 
-	ConvertSoundBlockToNative(p);
+	ConvertSoundBlockToNative( ( tpSoundSamp ) p );
 
 	TheFillOffset = TheWriteOffset;
 
@@ -1470,7 +1589,7 @@ struct MySoundR {
 };
 typedef struct MySoundR MySoundR;
 
-static void my_audio_callback(void *udata, int16_t *stream, int len)
+static void my_audio_callback(void *udata, uint8_t *stream, int len)
 {
 	ui4b ToPlayLen;
 	ui4b FilledSoundBuffs;
@@ -1638,7 +1757,7 @@ label_retry:
 #endif
 }
 
-LOCALVAR int16_t* SoundBuffer = NULL;
+LOCALVAR void* SoundBuffer = NULL;
 
 LOCALPROC MySound_Start(void)
 {
@@ -1667,10 +1786,16 @@ LOCALPROC MySound_UnInit(void)
 #define SOUND_SAMPLERATE 22255 /* = round(7833600 * 2 / 704) */
 
 LOCALPROC DSPCallback( void* Param ) {
+#if kLn2SoundSampSz == 3
+	const size_t Size = SampleCount;
+#else
+	const size_t Size = SampleCount * 2;
+#endif
+
 	if ( HaveSoundOut ) {
 		if ( WaveBuffers[ CurrentWaveBuf ].status == NDSP_WBUF_DONE ) {
-			my_audio_callback( Param, ( int16_t* ) WaveBuffers[ CurrentWaveBuf ].data_vaddr, SampleCount * 2 );
-			DSP_FlushDataCache( WaveBuffers[ CurrentWaveBuf ].data_vaddr, SampleCount * 2 );
+			my_audio_callback( Param, ( uint8_t* ) WaveBuffers[ CurrentWaveBuf ].data_vaddr, Size );
+			DSP_FlushDataCache( WaveBuffers[ CurrentWaveBuf ].data_vaddr, Size );
 
 			ndspChnWaveBufAdd( 0, &WaveBuffers[ CurrentWaveBuf ] );
 			CurrentWaveBuf = ! CurrentWaveBuf;
@@ -1680,6 +1805,14 @@ LOCALPROC DSPCallback( void* Param ) {
 
 LOCALFUNC blnr MySound_Init(void)
 {
+#if kLn2SoundSampSz == 3
+	const size_t Size = SampleCount * 2;
+	const uint16_t Format = NDSP_FORMAT_MONO_PCM8;
+#else
+	const size_t Size = SampleCount * 2 * 2;
+	const uint16_t Format = NDSP_FORMAT_MONO_PCM16;
+#endif
+
 	float Mix[ 12 ] = { 
 		1.0, 1.0, 0.0, 0.0,
 		0.0, 0.0, 0.0, 0.0,
@@ -1695,22 +1828,26 @@ LOCALFUNC blnr MySound_Init(void)
 	cur_audio.wantplaying = falseblnr;
 
 	if ( R_SUCCEEDED( ndspInit( ) ) ) {
-		SoundBuffer = ( int16_t* ) linearAlloc( SampleCount * 2 * sizeof( int16_t ) );
+		SoundBuffer = ( uint8_t* ) linearAlloc( Size );
 
 		if ( SoundBuffer != NULL ) {
-			memset( SoundBuffer, 0, SampleCount * 2 * sizeof( int16_t ) );
+			memset( SoundBuffer, 0, Size );
 			memset( WaveBuffers, 0, sizeof( WaveBuffers ) );
 
 			ndspSetOutputMode( NDSP_OUTPUT_MONO );
 			ndspChnSetInterp( 0, NDSP_INTERP_LINEAR );
 			ndspChnSetRate( 0, SOUND_SAMPLERATE );
-			ndspChnSetFormat( 0, NDSP_FORMAT_MONO_PCM16 );
+			ndspChnSetFormat( 0, Format );
 			ndspChnSetMix( 0, Mix );
 
 			WaveBuffers[ 0 ].data_vaddr = SoundBuffer;
 			WaveBuffers[ 0 ].nsamples = SampleCount;
 
-			WaveBuffers[ 1 ].data_vaddr = &SoundBuffer[ SampleCount ];
+#if kLn2SoundSampSz == 3
+			WaveBuffers[ 1 ].data_vaddr = ( ( uint8_t* ) SoundBuffer ) + SampleCount;
+#else
+			WaveBuffers[ 1 ].data_vaddr = ( ( uint16_t* ) SoundBuffer ) + SampleCount;
+#endif
 			WaveBuffers[ 1 ].nsamples = SampleCount;
 
 			HaveSoundOut = trueblnr;

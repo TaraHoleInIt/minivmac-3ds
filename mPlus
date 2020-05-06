@@ -1,4 +1,4 @@
-setup/tool -t 3dsa -lang eng -m plus -sound 1 -sss 4 -speed 2 -as 0 -bg 1 -ta 0 -n "minivmac-3ds" -an "mvvm3ds" -api 3ds > setup.sh
+setup/tool -t 3dsa -lang eng -sound 1 -sss 3 -speed 2 -as 0 -bg 1 -ta 0 -n "minivmac-3ds" -an "mvvm3ds" -api 3ds > setup.sh
 sh setup.sh
 
 
