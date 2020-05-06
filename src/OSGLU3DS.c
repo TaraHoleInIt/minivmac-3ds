@@ -52,8 +52,37 @@ LOCALVAR uint32_t Keys_Up = 0;
 #define MainScreenWidth 400
 #define MainScreenHeight 240
 
+#define SubScreenWidth 320
+#define SubScreenHeight 240
+
 // Cobbled together main framebuffer sprite
 LOCALVAR C2D_Sprite ScreenSprite = {
+	.image = ( C2D_Image ) {
+		.tex = &( C3D_Tex ) {
+			// Gets initialized later
+		},
+		.subtex = &( const Tex3DS_SubTexture ) {
+			.width = MainTextureWidth,
+			.height = MainTextureHeight,
+			.left = 0.0f,
+			.right = 1.0f,
+			.top = 1.0f,
+			.bottom = 0.0f
+		}
+	},
+	.params = ( C2D_DrawParams ) {
+		.pos.x = 0.0f,
+		.pos.y = 0.0f,
+		.pos.w = MainTextureWidth,
+		.pos.h = MainTextureHeight,
+		.center.x = 1.0f,
+		.center.y = 1.0f,
+		.depth = 1.0f,
+		.angle = 0.0f
+	}
+};
+
+LOCALVAR C2D_Sprite ScreenSpriteSub = {
 	.image = ( C2D_Image ) {
 		.tex = &( C3D_Tex ) {
 			// Gets initialized later
@@ -315,8 +344,18 @@ LOCALFUNC bool CreateMainScreen( void ) {
 			Result = C3D_TexInit( ScreenSprite.image.tex, 512, 512, GPU_RGB565 );
 
 			if ( Result ) {
+				// Point to the main screen image
+				memcpy( ScreenSpriteSub.image.tex, ScreenSprite.image.tex, sizeof( C3D_Tex ) );
+
 				// Starts in unscaled mode, this is needed to prevent artifacts
 				C3D_TexSetFilter( ScreenSprite.image.tex, GPU_NEAREST, GPU_NEAREST );
+				C3D_TexSetFilter( ScreenSpriteSub.image.tex, GPU_LINEAR, GPU_LINEAR );
+
+				C2D_SpriteSetScale( 
+					&ScreenSpriteSub,
+					( ( float ) SubScreenWidth ) / ( ( float ) vMacScreenWidth ),
+					( ( float ) SubScreenHeight ) / ( ( float ) vMacScreenHeight )
+				);
 			}
 		}
 	}
@@ -332,8 +371,23 @@ LOCALPROC DestroyMainScreen( void ) {
 	C3D_TexDelete( ScreenSprite.image.tex );
 }
 
+enum {
+	Scale_1to1 = 0,
+	Scale_Aspect,
+	Scale_Fill,
+	NumScales
+};
+
+int ScaleMode = Scale_1to1;
+
+float ScaleX = 1.0f;
+float ScaleY = 1.0f;
+
+LOCALPROC UpdateScale( void );
+
 LOCALPROC DrawMainScreen( void ) {
 	UpdateScroll( );
+	UpdateScale( );
 
 	C2D_TargetClear( MainRenderTarget, C2D_Color32( 0, 255, 255, 255 ) );
 	C2D_SceneBegin( MainRenderTarget );
@@ -352,9 +406,6 @@ LOCALPROC DrawMainScreen( void ) {
 #include "touchmap_bin.h"
 
 #define Static_C2D_Color32( r, g, b, a ) ( r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ) )
-
-#define SubScreenWidth 320
-#define SubScreenHeight 240
 
 #define BGColor Static_C2D_Color32( 205, 205, 238, 255 )
 
@@ -414,23 +465,13 @@ LOCALVAR blnr ControlHeld = falseblnr;
 LOCALVAR blnr CapsHeld = falseblnr;
 LOCALVAR blnr ScaleHeld = falseblnr;
 
-enum {
-	Scale_1to1 = 0,
-	Scale_Aspect,
-	Scale_Fill,
-	NumScales
-};
+LOCALVAR blnr HideUI = falseblnr;
 
 #define ScrollMinX 0
 #define ScrollMinY 0
 
 #define ScrollMaxX ( int ) -( ( ( float ) vMacScreenWidth * ScaleX ) - MainScreenWidth )
 #define ScrollMaxY ( int ) -( ( ( float ) vMacScreenHeight * ScaleY ) - MainScreenHeight )
-
-int ScaleMode = Scale_1to1;
-
-float ScaleX = 1.0f;
-float ScaleY = 1.0f;
 
 int ScrollX = 0;
 int ScrollY = 0;
@@ -448,49 +489,45 @@ LOCALPROC UpdateScroll( void ) {
 	C2D_SpriteSetPos( &ScreenSprite, ScrollX, ScrollY );
 }
 
-LOCALPROC ToggleScale( void ) {
-	if ( ScaleMode >= NumScales ) {
-		ScaleMode = Scale_1to1;
-	} else {
-		ScaleMode++;
-	}
-
+LOCALPROC UpdateScale( void ) {
 	switch ( ScaleMode ) {
 		case Scale_1to1: {
-			// Needed to prevent artifacts
 			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_NEAREST, GPU_NEAREST );
-			C3D_TexFlush( ScreenSprite.image.tex );
-
-			ScaleX = 1.0f;
-			ScaleY = 1.0f;
-
 			break;
 		}
 		case Scale_Aspect: {
 			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_LINEAR, GPU_LINEAR );
-			C3D_TexFlush( ScreenSprite.image.tex );
-
-			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
-			ScaleY = ScaleX;
-
 			break;
 		}
 		case Scale_Fill: {
 			C3D_TexSetFilter( ScreenSprite.image.tex, GPU_LINEAR, GPU_LINEAR );
-			C3D_TexFlush( ScreenSprite.image.tex );
-
-			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
-			ScaleY = ( ( float ) MainScreenHeight ) / ( ( float ) vMacScreenHeight );
-			
 			break;
 		}
-		default: {
-			ScaleMode = Scale_1to1;
+		default: break;
+	};
+}
+
+LOCALPROC ToggleScale( void ) {
+	ScaleMode++;
+	ScaleMode = ( ScaleMode >= NumScales ) ? Scale_1to1 : ScaleMode;
+
+	switch ( ScaleMode ) {
+		case Scale_1to1: {
 			ScaleX = 1.0f;
 			ScaleY = 1.0f;
-
 			break;
 		}
+		case Scale_Aspect: {
+			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
+			ScaleY = ScaleX;
+			break;
+		}
+		case Scale_Fill: {
+			ScaleX = ( ( float ) MainScreenWidth ) / ( ( float ) vMacScreenWidth );
+			ScaleY = ( ( float ) MainScreenHeight ) / ( ( float ) vMacScreenHeight );
+			break;
+		}
+		default: break;
 	};
 
 	C2D_SpriteSetScale( &ScreenSprite, ScaleX, ScaleY );
@@ -628,21 +665,31 @@ LOCALPROC DrawSubScreen( void ) {
     C2D_TargetClear( SubRenderTarget, BGColor );
     C2D_SceneBegin( SubRenderTarget );
 
-    C2D_DrawSprite( &TitlebarSprite );
+	if ( HideUI == falseblnr ) {
+		C2D_DrawSprite( &TitlebarSprite );
 
-    C2D_DrawSprite( &MenuSprite );
-    C2D_DrawSprite( &ScaleSprite );
-    C2D_DrawSprite( &InsertSprite );
+		C2D_DrawSprite( &MenuSprite );
+		C2D_DrawSprite( &ScaleSprite );
+		C2D_DrawSprite( &InsertSprite );
 
-    if ( ShiftHeld ) {
-        C2D_DrawSprite( &KB_Shift_Sprite );
-    } else if ( CapsHeld ) {
-        C2D_DrawSprite( &KB_Uppercase_Sprite );
-    } else {
-        C2D_DrawSprite( &KB_Lowercase_Sprite );
-    }
+		if ( ShiftHeld ) {
+			C2D_DrawSprite( &KB_Shift_Sprite );
+		} else if ( CapsHeld ) {
+			C2D_DrawSprite( &KB_Uppercase_Sprite );
+		} else {
+			C2D_DrawSprite( &KB_Lowercase_Sprite );
+		}
 
-    C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 0.5f, 1.0f, 1.0f );
+		C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 0.5f, 1.0f, 1.0f );
+
+		// This needs special handling?
+		DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
+		DrawKeyHighlight( ScaleHeld ? TM_Scale : 0xFF );
+
+		HighlightTheDownKeys( );
+	} else {
+		C2D_DrawSprite( &ScreenSpriteSub );
+	}
 
 /*
     DrawKeyHighlight( ShiftHeld ? MKC_Shift : 0xFF );
@@ -651,98 +698,103 @@ LOCALPROC DrawSubScreen( void ) {
     DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
     DrawKeyHighlight( CapsHeld ? MKC_CapsLock : 0xFF );
 */
-
-	// This needs special handling?
-    DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
-	DrawKeyHighlight( ScaleHeld ? TM_Scale : 0xFF );
-
-	HighlightTheDownKeys( );
 }
+
+LOCALVAR int MouseX = 0;
+LOCALVAR int MouseY = 0;
 
 LOCALPROC SubScreenUpdateInput( void ) {
     int TouchX = 0;
     int TouchY = 0;
     
-    if ( Keys_Down & KEY_TOUCH ) {
-        TouchX = TouchPad.px / 8;
-        TouchY = TouchPad.py / 8;
+	if ( HideUI == false ) {
+		if ( Keys_Down & KEY_TOUCH ) {
+			TouchX = TouchPad.px / 8;
+			TouchY = TouchPad.py / 8;
 
-        TouchX = ( TouchX < 0 ) ? 0 : TouchX;
-        TouchY = ( TouchY < 0 ) ? 0 : TouchY;
+			TouchX = ( TouchX < 0 ) ? 0 : TouchX;
+			TouchY = ( TouchY < 0 ) ? 0 : TouchY;
 
-        TouchX = ( TouchX >= TouchmapWidth ) ? TouchmapWidth - 1 : TouchX;
-        TouchY = ( TouchY >= TouchmapHeight ) ? TouchmapHeight - 1 : TouchY;
+			TouchX = ( TouchX >= TouchmapWidth ) ? TouchmapWidth - 1 : TouchX;
+			TouchY = ( TouchY >= TouchmapHeight ) ? TouchmapHeight - 1 : TouchY;
 
-        TouchKeyDown = touchmap_bin[ TouchX + ( TouchY * TouchmapWidth ) ];
+			TouchKeyDown = touchmap_bin[ TouchX + ( TouchY * TouchmapWidth ) ];
 
-        switch ( TouchKeyDown ) {
-            case 0xFF: {
-                break;
-            }
-			case TM_Scale: {
-				ToggleScale( );
+			switch ( TouchKeyDown ) {
+				case 0xFF: {
+					break;
+				}
+				case TM_Scale: {
+					ToggleScale( );
 
-				ScaleHeld = trueblnr;
-				break;
-			}
-            default: {
-                DoKeyCode( TouchKeyDown, trueblnr );
-                break;
-            }
-        };
-    }
+					ScaleHeld = trueblnr;
+					break;
+				}
+				default: {
+					DoKeyCode( TouchKeyDown, trueblnr );
+					break;
+				}
+			};
+		}
 
-    if ( Keys_Up & KEY_TOUCH ) {
-        switch ( TouchKeyDown ) {
-            case 0xFF: {
-                break;
-            }
-            case TM_Scale: {
-                ScaleHeld = falseblnr;
-                break;
-            }
-            case TM_Insert: {
-                InsertDisk( );
-                break;
-            }
-            case MKC_Shift: {
-                ShiftHeld = ! ShiftHeld;
+		if ( Keys_Up & KEY_TOUCH ) {
+			switch ( TouchKeyDown ) {
+				case 0xFF: {
+					break;
+				}
+				case TM_Scale: {
+					ScaleHeld = falseblnr;
+					break;
+				}
+				case TM_Insert: {
+					InsertDisk( );
+					break;
+				}
+				case MKC_Shift: {
+					ShiftHeld = ! ShiftHeld;
 
-                DoKeyCode( TouchKeyDown, ShiftHeld );
-                break;
-            }
-            case MKC_Option: {
-                OptionHeld = ! OptionHeld;
+					DoKeyCode( TouchKeyDown, ShiftHeld );
+					break;
+				}
+				case MKC_Option: {
+					OptionHeld = ! OptionHeld;
 
-                DoKeyCode( TouchKeyDown, OptionHeld );
-                break;
-            }
-            case MKC_Command: {
-                CommandHeld = ! CommandHeld;
+					DoKeyCode( TouchKeyDown, OptionHeld );
+					break;
+				}
+				case MKC_Command: {
+					CommandHeld = ! CommandHeld;
 
-                DoKeyCode( TouchKeyDown, CommandHeld );
-                break;
-            }
-            case MKC_CapsLock: {
-                CapsHeld = ! CapsHeld;
+					DoKeyCode( TouchKeyDown, CommandHeld );
+					break;
+				}
+				case MKC_CapsLock: {
+					CapsHeld = ! CapsHeld;
 
-                DoKeyCode( TouchKeyDown, CapsHeld );
-                break;
-            }
-            case MKC_CM: {
-                ControlHeld = ! ControlHeld;
+					DoKeyCode( TouchKeyDown, CapsHeld );
+					break;
+				}
+				case MKC_CM: {
+					ControlHeld = ! ControlHeld;
 
-                DoKeyCode( TouchKeyDown, ControlHeld );
-                break;
-            }
-            default: {
-                DoKeyCode( TouchKeyDown, falseblnr );
-                break;
-            }
-        };
+					DoKeyCode( TouchKeyDown, ControlHeld );
+					break;
+				}
+				default: {
+					DoKeyCode( TouchKeyDown, falseblnr );
+					break;
+				}
+			};
 
-        TouchKeyDown = 0xFF;
-    }
+			TouchKeyDown = 0xFF;
+		}
+	} else {
+		// Mouse mode
+		if ( Keys_Held & KEY_TOUCH ) {
+			MouseX = TouchPad.px * ( ( ( float ) vMacScreenWidth ) / ( ( float ) SubScreenWidth ) );
+			MouseY = TouchPad.py * ( ( ( float ) vMacScreenHeight ) / ( ( float ) SubScreenHeight ) );
+		}
+	}
 }
 
 /* --- End of sub screen UI --- */
@@ -1197,9 +1249,6 @@ LOCALPROC MousePositionNotify(int NewMousePosh, int NewMousePosv)
 		MyMousePositionSet(NewMousePosh, NewMousePosv);
 	}
 }
-
-LOCALVAR int MouseX = 0;
-LOCALVAR int MouseY = 0;
 
 LOCALPROC CheckMouseState(void)
 {
@@ -2162,6 +2211,10 @@ LOCALPROC CheckForSystemEvents(void)
 			ForceMacOff = trueblnr;
 		}
 
+		if ( Keys_Up & KEY_SELECT ) {
+			HideUI = ! HideUI;
+		}
+
 		if ( C3D_FrameBegin( C3D_FRAME_NONBLOCK ) == true ) {
 			DrawMainScreen( );
 			DrawSubScreen( );
@@ -2272,6 +2325,9 @@ LOCALPROC UnallocMyMemory(void)
 	if (nullpr != ReserveAllocBigBlock) {
 		free((char *)ReserveAllocBigBlock);
 	}
+}
+
+LOCALFUNC void VBlankEvent( void* Param ) {
 }
 
 LOCALFUNC blnr InitOSGLU(void)

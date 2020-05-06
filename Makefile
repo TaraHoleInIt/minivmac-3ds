@@ -33,9 +33,9 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	src 3dssrc
+SOURCES		:=	src
 DATA		:=	data
-INCLUDES	:=	cfg src 3dssrc
+INCLUDES	:=	cfg src
 #GRAPHICS	:=	gfx
 #GFXBUILD	:=	$(BUILD)
 #ROMFS		:=	romfs
@@ -86,11 +86,9 @@ export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 #CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CFILES := \
 	MINEM68K.o \
-	OSGLU3DS.o \
 	GLOBGLUE.o \
 	M68KITAB.o \
 	VIAEMDEV.o \
-	VIA2EMDV.o \
 	IWMEMDEV.o \
 	SCCEMDEV.o \
 	RTCEMDEV.o \
@@ -98,11 +96,11 @@ CFILES := \
 	SCSIEMDV.o \
 	SONYEMDV.o \
 	SCRNEMDV.o \
-	VIDEMDEV.o \
 	MOUSEMDV.o \
-	ADBEMDEV.o \
-	ASCEMDEV.o \
-	PROGMAIN.o
+	KBRDEMDV.o \
+	SNDEMDEV.o \
+	PROGMAIN.o \
+	OSGLU3DS.o
 
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
