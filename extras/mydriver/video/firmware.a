@@ -1,0 +1,277 @@
+	STRING	C
+	MACHINE	MC68020
+	PRINT	OFF
+	INCLUDE	'SlotEqu.a'
+	INCLUDE	'VideoEqu.a'
+	INCLUDE	'Traps.a'
+	INCLUDE	'SysEqu.a'
+	INCLUDE	'SysErr.a'
+	PRINT	ON
+
+VideoDeclROM	MAIN
+
+;========================================================================================
+
+; General Directives
+
+	BLANKS	ON
+	STRING	ASIS
+
+kCmndVideoSetIntEnbl  EQU $0003
+kCmndVideoClearInt    EQU $0004
+kCmndVideoStatus      EQU $0005
+kCmndVideoControl     EQU $0006
+
+;========================================================================================
+;	       Local Vars, definitions, etc...
+;========================================================================================
+
+;This is device storage, a handle to which is stored in the dCtlStorage field of the DCE.
+
+saveSQElPtr EQU 0 ; the SQ element pointer (for
+                    ;   _SIRemove
+dCtlSize    EQU saveSQElPtr+4 ; size of the dCtlStorage
+
+;========================================================================================
+;           Video Driver Header
+;========================================================================================
+
+VidDrvr
+	DC.W    $4C00       ; ctl,status,needsLock
+	DC.W    0, 0, 0     ; not an ornament
+
+;Entry point offset table
+
+	DC.W    VideoOpen - VidDrvr   ; open routine
+	DC.W    VidDrvr - VidDrvr     ; no prime
+	DC.W    VideoCtl - VidDrvr    ; control
+	DC.W    VideoStatus - VidDrvr ; status
+	DC.W    VideoClose - VidDrvr  ; close
+
+VideoTitle
+	STRING  Pascal
+	DC.W    '.Display_Video_Sample'
+	STRING  ASIS
+	ALIGN   2       ; make sure we're aligned
+	DC.W    0       ; version-0
+
+;========================================================================================
+;VideoOpen allocates private storage for the device in the DCE and locks
+;      it down for perpetuity. It installs the interrupt handler and enables
+;      the interrupts. It also sets the default gamma table included in the driver.
+;
+;Entry:
+;   A0 = param block pointer
+;   A1 = DCE pointer
+;
+;Locals:
+;   A2 = Saved param block pointer
+;   A3 = Saved DCE pointer
+;   A4 = Saved interrupt handler ptr
+;========================================================================================
+
+;Save registers
+VideoOpen
+	MOVE.L     A0, A2  ; A2 <- param block pointer
+	MOVE.L     A1, A3  ; A3 <- DCE pointer
+
+;Allocate private storage
+	MOVEQ      #dCtlSize, D0 ; get size of parameters
+	_ResrvMem ,SYS           ; make room as low as possible
+	MOVEQ      #dCtlSize, D0 ; get size of parameters
+	_NewHandle ,SYS,CLEAR    ; get some memory for private
+	                         ; storage
+	BNE        OpError       ;=> return an error in open
+	MOVE.L     A0, dCtlStorage(A3) ; saved returned handle in DCE
+	_HLock                   ; and lock it down
+
+;Get and install the interrupt handler
+	LEA        BeginIH, A4   ; Save point to interrupt handler
+	MOVEQ      #SlotIntQElement.sqHDSize,D0  ; allocate a slot queue element
+	_NewPtr    ,SYS,CLEAR    ; get it from system heap cleared
+	BNE        OpError
+	MOVE.W     #SIQType, SlotIntQElement.sqType(A0) ; setup queue ID
+	MOVE.L     A4, SlotIntQElement.sqAddr(A0)  ; setup int routine address
+	MOVE.L     A3, SlotIntQElement.sqParm(A0)  ; save slot base addr as A3 parm
+	CLR.L      D0
+	MOVE.B     dctlSlot(A3), D0 ; setup slot #
+	_SIntInstall   ; and do install
+	BNE.S      OpError
+
+;Save SQElPtr for removal
+	MOVE.L     dCtlStorage(A3), A1  ; Get point to private storage
+	MOVE.L     (A1), A1
+	MOVE.L     A0, saveSQElPtr(A1)  ; Save the SQ element pointer
+
+;Enable interrupts
+
+	MOVE.W     #1, -(A7) ; enabled
+	SUBQ       #2, A7    ; result code
+	MOVE.W     #kCmndVideoSetIntEnbl, -(A7)
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+	ADDA.W     #10, A7
+
+	MOVEQ      #0, D0      ; no error
+	BRA.S      EndOpen
+
+; Error
+OpError
+	MOVE.L     #openErr, D0  ; say can't open driver
+EndOpen
+	RTS
+
+;========================================================================================
+;          The interrupt handler for the board
+;========================================================================================
+
+; On entry A1 contains DCE
+
+; wrong! : "D0-D3/A0-A3 have been preserved."
+; (comment from Apples sample code.)
+; must preserve registers except A1/D0
+
+BeginIH
+	MOVE.L     A0, -(A7)
+
+	; clear interrupt from card
+
+	SUBQ       #2, A7    ; result code
+	MOVE.W     #kCmndVideoClearInt, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDQ.W     #8, A7
+
+	MOVE.L     dctlDevBase(A1), D0 ; D0 = $Fsxxxxxx
+	ROL.L      #8, D0              ; D0 <- $xxxxxxFs     Convert the
+	                               ;                     address into
+	AND        #$0F, D0            ; D0 <- $xxxx000x     the slot
+	                               ;                     number
+	MOVE.L     JVBLTask, A0        ; call the VBL task manager
+	JSR        (A0)                ; with slot # in D0
+
+	MOVE.L     (A7)+, A0
+	MOVEQ      #1, D0     ; signal that int was serviced
+	RTS                   ; and return to caller
+
+;========================================================================================
+;
+;VideoClose releases the device's private storage.
+;
+;Entry:
+;   A0 = param block pointer
+;   A1 = DCE pointer
+;
+;Locals:
+;   A2 = Saved param block pointer
+;   A3 = Saved DCE pointer
+;   A4 = Temporary
+;
+;========================================================================================
+
+VideoClose
+
+	MOVE.L     A3, -(A7) ; save
+	MOVE.L     dCtlStorage(A1), A3; Get pointer to private storage
+
+	MOVE.W     #0, -(A7) ; disabled
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndVideoSetIntEnbl, -(A7)
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+	ADDA.W     #10, A7
+
+	MOVE.L     (A3), A0
+	MOVE.L     saveSQElPtr(A0), A0 ; Get the SQ element pointer
+	_SIntRemove          ; Remove the interrupt handler
+
+	MOVE.L     A3, A0    ; Dispose of the private storage
+	_DisposHandle
+	MOVEQ      #0, D0    ; get error into D0
+
+	MOVE.L     (A7)+, A3 ; restore A3
+	RTS                  ; return to caller
+
+;========================================================================================
+;
+;Video Driver Control Call Handler.
+;
+;      Entry:
+;   A0    = param block pointer
+;   A1    = DCE pointer
+;      Uses:
+;   A2    = cs paramaters (i.e. A2 <- csParam(A0)) (must be preserved)
+;   A3    = scratch (doesn't need to be preserved)
+;   A4    = scratch (must be preserved)
+;   D0-D3 = scratch (don't need to be preserved)
+;
+;      Exit:  D0    =       error code
+;
+;========================================================================================
+
+;Decode the call
+VideoCtl
+	MOVE.L     A0, -(A7)
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndVideoControl, -(A7)
+	BRA.S      VideoStatusControlCommon
+
+;========================================================================================
+;
+;Video DriverStatus Call Handler.  Right now there are three calls:
+;
+;      (2)  GetMode
+;      (4)  GetPage
+;      (5)  GetPageBase
+;
+;      Entry:
+;   A0    = param block
+;   A1    = DCE pointer
+;      Uses:
+;   A2    = cs paramaters (i.e. A2 <- csParam(A0)) (must be preserved)
+;   A3    = scratch (doesn't need to be preserved)
+;   D0-D3 = scratch (don't need to be preserved)
+;
+;      Exit:  D0    =       error code
+;
+;========================================================================================
+
+VideoStatus
+	MOVE.L     A0, -(A7)
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndVideoStatus, -(A7)
+VideoStatusControlCommon
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; save result code
+	MOVE.L     (A7)+, A0 ; restore A0
+
+;========================================================================================
+;      Exit from control or status
+;========================================================================================
+
+	BTST       #NoQueueBit,ioTrap(A0) ;no queue bit set?
+	BEQ.S      GoIODone     ;=> no, not immediate
+	RTS                     ;otherwise, it was an immediate call
+
+GoIODone
+	MOVE.L     JIODone,A0   ;get the IODone address
+	JMP        (A0)
+
+TailData
+
+	ENDP
+
+	END

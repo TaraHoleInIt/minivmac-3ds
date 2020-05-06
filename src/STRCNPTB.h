@@ -26,7 +26,7 @@
 
 #define kStrMoreCommandsTitle "Mais comandos est;nao dispon;eiveis no Modo de Controle ^p."
 
-#define kStrMoreCommandsMessage "Para entrar no Modo de Controle, pressione e mantenha pressionada a tecla ;]control;}, voc;ie permanecer;ea no Modo de Controle at;ee que voc;ie solte a tecla ;]control;}. Digite 'H' no Modo de Controle para listar os comandos dispon;eiveis."
+#define kStrMoreCommandsMessage "Para entrar no Modo de Controle, pressione e mantenha pressionada a tecla ;]^c;}, voc;ie permanecer;ea no Modo de Controle at;ee que voc;ie solte a tecla ;]^c;}. Digite 'H' no Modo de Controle para listar os comandos dispon;eiveis."
 
 #define kStrTooManyImagesTitle "Imagens de Disco excedidas"
 
@@ -102,7 +102,7 @@
 #define kStrDisclaimer " ^p ;ee distribu;eido com a esperan;ca de que ser;ea ;eutil, mas SEM NENHUMA GARANTIA, sem sequer a garantia impl;eicita de COMERCIALIZA;C;nAO ou ADEQUA;C;nAO A UM DETERMINADO PROP;eOSITO."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Para sair do modo de controle, solte a tecla ;]control;}."
+#define kStrHowToLeaveControl "Para sair do modo de controle, solte a tecla ;]^c;}."
 
 #define kStrHowToPickACommand "Caso contr;eario, digite uma letra. Comandos dispon;eiveis:"
 
@@ -118,7 +118,7 @@
 
 #define kStrCmdFullScrnToggle "Tela Cheia (^f)"
 
-#define kStrCmdCtrlKeyToggle "Alternar Tecla ;]control;} emulada (^k)"
+#define kStrCmdCtrlKeyToggle "Alternar Tecla ;]^m;} emulada (^k)"
 
 #define kStrCmdReset "Reiniciar"
 
@@ -153,7 +153,7 @@
 
 #define kStrNewFullScreen "Tela Cheia est;ea ^f."
 
-#define kStrNewCntrlKey "Emula;c;nao da tecla ;]control;} ^k."
+#define kStrNewCntrlKey "Emula;c;nao da tecla ;]^m;} ^k."
 
 #define kStrCmdCancel "cancelar"
 
@@ -206,3 +206,6 @@
 #define kStrAppMenuItemHideOthers "Esconder Outras"
 #define kStrAppMenuItemShowAll "Mostrar Todas"
 #define kStrAppMenuItemQuit "Sair ^p"
+
+#define kStrCmdCopyOptions "Copiar variation options"
+#define kStrHaveCopiedOptions "Variation options copiadas"

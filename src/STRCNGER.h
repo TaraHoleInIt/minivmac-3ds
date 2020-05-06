@@ -24,7 +24,7 @@
 #define kStrAboutMessage "Mehr Informationen zu ^p erhalten Sie ;uuber die Taste ;]A;} im Kontrollmodus. Informationen zum Kontrollmodus erhalten Sie ;uuber den Men;uubefehl ;[Mehr Befehle;ll;{ im Spezialmen;uu."
 
 #define kStrMoreCommandsTitle "Mehr Befehle sind im Kontrollmodus abrufbar."
-#define kStrMoreCommandsMessage "Um den Kontrollmodus von ^p aufzurufen, dr;uucken Sie die Ctrl-Taste und lassen diese gedr;uuckt. Sie verbleiben im Kontrollmodus, solange Sie diese Taste gedr;uuckt halten. Eine Liste verf;uugbarer Befehle erhalten Sie w;uahrenddessen durch Dr;uucken der Taste ;]H;}."
+#define kStrMoreCommandsMessage "Um den Kontrollmodus von ^p aufzurufen, dr;uucken Sie die ;]^c;}-Taste und lassen diese gedr;uuckt. Sie verbleiben im Kontrollmodus, solange Sie diese Taste gedr;uuckt halten. Eine Liste verf;uugbarer Befehle erhalten Sie w;uahrenddessen durch Dr;uucken der Taste ;]H;}."
 
 #define kStrTooManyImagesTitle "Zuviele Disketten-Images."
 #define kStrTooManyImagesMessage "Soviele Images k;uonnen nicht gemountet sein. Bitte werfen Sie einige aus."
@@ -45,7 +45,7 @@
 #define kStrUnsupportedROMMessage "Das ROM ;[^r;{ wurde erfolgreich geladen, aber diese Version von ^p unterst;uutzt es nicht."
 
 #define kStrQuitWarningTitle "Bitte fahren Sie das emulierte MacOS herunter, bevor Sie ^p beenden."
-#define kStrQuitWarningMessage "Um ^p sofort zu beenden, aber Besch;uadigungen an den gemounteten Disketten-Images in Kauf zu nehmen, dr;uucken Sie die Taste ;]Q;} innerhalb des Kontrollmodus. Zugriff zum Kontrollmodus von ^p erhalten Sie, indem Sie die ;]Ctrl;}-Taste gedr;uuckt halten."
+#define kStrQuitWarningMessage "Um ^p sofort zu beenden, aber Besch;uadigungen an den gemounteten Disketten-Images in Kauf zu nehmen, dr;uucken Sie die Taste ;]Q;} innerhalb des Kontrollmodus. Zugriff zum Kontrollmodus von ^p erhalten Sie, indem Sie die ;]^c;}-Taste gedr;uuckt halten."
 
 #define kStrReportAbnormalTitle "Unerwartete Situation"
 #define kStrReportAbnormalMessage "Der emulierte Rechner hat versucht, eine Operation durchzuf;uuhren, die im Rahmen eines normalen Gebrauches nicht vorgesehen war."
@@ -83,7 +83,7 @@
 #define kStrDisclaimer " ^p wird angeboten in der Hoffnung, brauchbar zu sein, aber OHNE JEDE GARANTIE;ls gleichfalls ohne garantierte EIGNUNG ZU EINEM BESTIMMTEN ZWECK."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Um den Kontrollmodus zu verlassen, lassen Sie ;]Ctrl;} los."
+#define kStrHowToLeaveControl "Um den Kontrollmodus zu verlassen, lassen Sie ;]^c;} los."
 #define kStrHowToPickACommand "Anderenfalls dr;uucken Sie einen dieser Buchstaben:"
 #define kStrCmdAbout "Informationen zu dieser Version"
 #define kStrCmdOpenDiskImage "Disketten-Image ;uoffnen;ll"
@@ -91,7 +91,7 @@
 #define kStrCmdSpeedControl "Geschwindigkeitskontrolle;ll (^s)"
 #define kStrCmdMagnifyToggle "Vergr;uosserung (^g)"
 #define kStrCmdFullScrnToggle "Vollbild (^f)"
-#define kStrCmdCtrlKeyToggle "Emulierte ;]Control;}-Taste (^k)"
+#define kStrCmdCtrlKeyToggle "Emulierte ;]^m;}-Taste (^k)"
 #define kStrCmdReset "Neustarten (Reset durchf;uuhren)"
 #define kStrCmdInterrupt "Interrupt"
 #define kStrCmdHelp "Hilfe (zeigt diese Befehlsliste)"
@@ -115,7 +115,7 @@
 
 #define kStrNewFullScreen "Vollbildmodus ist ^f"
 
-#define kStrNewCntrlKey "Emulierte ;]Control;}-Taste ^k"
+#define kStrNewCntrlKey "Emulierte ;]^m;}-Taste ^k"
 
 #define kStrCmdCancel "Abbrechen"
 
@@ -163,3 +163,7 @@
 #define kStrAppMenuItemHideOthers "Andere ausblenden"
 #define kStrAppMenuItemShowAll "Alle einblenden"
 #define kStrAppMenuItemQuit "^p beenden"
+
+#define kStrCntrlKyName "Control"
+#define kStrCmdCopyOptions "Variation options kopieren"
+#define kStrHaveCopiedOptions "Variation options kopiert"

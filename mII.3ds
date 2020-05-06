@@ -1,0 +1,2 @@
+setup/tool -t larm -lang eng -m II -sound 0 -speed 2 -as 0 -bg 1 -ta 0 -depth 2 -hres 512 -vres 384 -n "minivmac-3ds" -an "mvvm3ds" -api sdl
+

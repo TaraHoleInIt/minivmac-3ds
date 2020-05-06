@@ -27,7 +27,7 @@
 #define kStrAboutMessage "Per visualizzare le informazioni su questo programma usa il comando ;]A;} dalla Modalit;`a Controllo di ^p. Per informazioni sulla Modalit;`a Controllo, vedi ;[Ulteriori Comandi;ll;{ nel men;`u ;[Speciale;{."
 
 #define kStrMoreCommandsTitle "Ulteriori comandi sono disponibili nella Modalit;`a Controllo di ^p."
-#define kStrMoreCommandsMessage "Per entrare nella Modalit;`a Controllo, premi e tieni premuto il tasto ;]control;}. La Modalit;`a Controllo rester;`a attiva fino a che il tasto ;]control;} non verr;`a rilasciato. Digita ;]H;} nella Modalit;`a Controllo per avere la lista dei comandi disponibili."
+#define kStrMoreCommandsMessage "Per entrare nella Modalit;`a Controllo, premi e tieni premuto il tasto ;]^c;}. La Modalit;`a Controllo rester;`a attiva fino a che il tasto ;]^c;} non verr;`a rilasciato. Digita ;]H;} nella Modalit;`a Controllo per avere la lista dei comandi disponibili."
 
 #define kStrTooManyImagesTitle "Troppe Immagini Disco."
 #define kStrTooManyImagesMessage "Non posso montare altre Immagini Disco. Prova ad espellerne una."
@@ -86,7 +86,7 @@
 #define kStrDisclaimer " ^p ;`e distribuito con la speranza che sia utile, ma SENZA ALCUNA GARANZIA;ls compresa la garanzia implicita di COMMERCIABILIT;`A o IDONEIT;`A PER UN QUALSIASI SCOPO."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Per uscire dalla Modalit;`a Controllo, rilascia il tasto ;]control;}."
+#define kStrHowToLeaveControl "Per uscire dalla Modalit;`a Controllo, rilascia il tasto ;]^c;}."
 #define kStrHowToPickACommand "Altrimenti premi una lettera. I comandi disponibili sono:"
 #define kStrCmdAbout "Informazioni (informazioni sulla versione)"
 #define kStrCmdOpenDiskImage "Apri immagine disco;ll"
@@ -94,7 +94,7 @@
 #define kStrCmdSpeedControl "Controllo velocit;`a;ll (^s)"
 #define kStrCmdMagnifyToggle "Ingrandimento (^g)"
 #define kStrCmdFullScrnToggle "Schermo intero (^f)"
-#define kStrCmdCtrlKeyToggle "Tasto ;]control;} emulato (^k)"
+#define kStrCmdCtrlKeyToggle "Tasto ;]^m;} emulato (^k)"
 #define kStrCmdReset "Reset"
 #define kStrCmdInterrupt "Interrupt"
 #define kStrCmdHelp "Aiuto (mostra questo messaggio)"
@@ -118,7 +118,7 @@
 
 #define kStrNewFullScreen "Lo schermo intero ;`e ^f"
 
-#define kStrNewCntrlKey "Il tasto ;]control;} emulato ;`e ^k"
+#define kStrNewCntrlKey "Il tasto ;]^m;} emulato ;`e ^k"
 
 #define kStrCmdCancel "Annulla"
 
@@ -165,3 +165,6 @@
 #define kStrAppMenuItemHideOthers "Nascondi altre"
 #define kStrAppMenuItemShowAll "Mostra tutte"
 #define kStrAppMenuItemQuit "Esci da ^p"
+
+#define kStrCmdCopyOptions "Copia variation options"
+#define kStrHaveCopiedOptions "Variation options copiate"

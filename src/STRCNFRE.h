@@ -25,7 +25,7 @@
 #define kStrAboutMessage "Pour afficher des informations sur ce programme, utilisez la commande A du mode commande de ^p. Pour en savoir plus sur le mode commande, s;eelectionnez l;}article Autres commandes;ll du menu Sp;eecial."
 
 #define kStrMoreCommandsTitle "D;}autres commandes sont disponibles dans le mode commande de ^p."
-#define kStrMoreCommandsMessage "Pour acc;eeder au mode commande, maintenez la touche Contr;iole enfonc;eee. Vous allez demeurer en mode commande jusqu;};`a ce que vous rel;iachiez la touche Contr;iole. Tapez H en mode commande pour afficher la liste des commandes disponibles."
+#define kStrMoreCommandsMessage "Pour acc;eeder au mode commande, maintenez la touche ^c enfonc;eee. Vous allez demeurer en mode commande jusqu;};`a ce que vous rel;iachiez la touche ^c. Tapez H en mode commande pour afficher la liste des commandes disponibles."
 
 #define kStrTooManyImagesTitle "Images disques trop nombreuses."
 #define kStrTooManyImagesMessage "Je ne peux pas ouvrir un aussi grand nombre d;}images disques. Veuillez en ;eejecter une."
@@ -84,7 +84,7 @@
 #define kStrDisclaimer " ^p est distribu;ee dans l;}espoir qu;}il sera utile, mais SANS AUCUNE GARANTIE, sans m;ieme une garantie implicite de COMMERCIABILIT;eE ou DE CONFORMIT;eE ;`A UNE UTILISATION PARTICULI;`ERE."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Pour quitter le mode commande, rel;iachez la touche Contr;iole."
+#define kStrHowToLeaveControl "Pour quitter le mode commande, rel;iachez la touche ^c."
 #define kStrHowToPickACommand "Sinon, choisissez l;}une des commandes ci-dessous en tapant la lettre correspondante :"
 #define kStrCmdAbout ";`A propos (de cette version du logiciel)"
 #define kStrCmdOpenDiskImage "Ouvrir une image disque;ll"
@@ -92,7 +92,7 @@
 #define kStrCmdSpeedControl "R;eeglage de la vitesse;ll (^s)"
 #define kStrCmdMagnifyToggle "Agrandissement (^g)"
 #define kStrCmdFullScrnToggle "Plein ;eecran (^f)"
-#define kStrCmdCtrlKeyToggle "Touche Contr;iole virtuelle (^k)"
+#define kStrCmdCtrlKeyToggle "Touche ^m virtuelle (^k)"
 #define kStrCmdReset "R;eeinitialisation"
 #define kStrCmdInterrupt "Interruption"
 #define kStrCmdHelp "Aide (affiche cette page)"
@@ -116,7 +116,7 @@
 
 #define kStrNewFullScreen "Mode plein ;eecran ^f."
 
-#define kStrNewCntrlKey "Touche Contr;iole virtuelle ^k."
+#define kStrNewCntrlKey "Touche ^m virtuelle ^k."
 
 #define kStrCmdCancel "Annuler"
 
@@ -163,3 +163,7 @@
 #define kStrAppMenuItemHideOthers "Masquer les autres"
 #define kStrAppMenuItemShowAll "Tout afficher"
 #define kStrAppMenuItemQuit "Quitter ^p"
+
+#define kStrCntrlKyName "Contr;iole"
+#define kStrCmdCopyOptions "Copier variation options"
+#define kStrHaveCopiedOptions "Variation options copi;eees"

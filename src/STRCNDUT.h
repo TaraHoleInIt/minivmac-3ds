@@ -24,7 +24,7 @@
 #define kStrAboutMessage "Gebruik het ;]A;}-commando van de ^p controlemodus om meer informatie over deze applicatie te tonen. Om meer te weten te komen over de controlemodus, zie ;[Meer Commando;}s;ll;{ in het ;[Speciaal;{ menu."
 
 #define kStrMoreCommandsTitle "Meer commando;}s zijn beschikbaar in de ^p controlemodus."
-#define kStrMoreCommandsMessage "Om naar de controlemodus te gaan, hou de ;]control;} toets ingedrukt. Je blijft in de controlemodus zolang je de ;]control;} toets ingedrukt houdt.  Type ;]H;} in de controlemodus om een lijst van beschikbare commando;}s te zien."
+#define kStrMoreCommandsMessage "Om naar de controlemodus te gaan, hou de ;]^c;} toets ingedrukt. Je blijft in de controlemodus zolang je de ;]^c;} toets ingedrukt houdt.  Type ;]H;} in de controlemodus om een lijst van beschikbare commando;}s te zien."
 
 #define kStrTooManyImagesTitle "Teveel schijfkopiebestanden"
 #define kStrTooManyImagesMessage "Het maximaal aantal schijfkopiebestanden is in gebruik.  Probeer er ;ee;een te verwijderen."
@@ -83,7 +83,7 @@
 #define kStrDisclaimer " ^p wordt verspreid in de hoop dat het bruikbaar is, maar ZONDER ENIGE GARANTIE, zelfs zonder impliciete garanties van VERKOOPBAARHEID noch BRUIKBAARHEID VOOR EEN BEPAALD DOELEINDE."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Laat de ;]control;} toets los om de controlemodus te verlaten."
+#define kStrHowToLeaveControl "Laat de ;]^c;} toets los om de controlemodus te verlaten."
 #define kStrHowToPickACommand "Zoniet, typ een letter.  De beschikbare commando;}s zijn:"
 #define kStrCmdAbout "Over ^p (informatie over deze versie)"
 #define kStrCmdOpenDiskImage "Open schijfkopiebstand;ll"
@@ -91,7 +91,7 @@
 #define kStrCmdSpeedControl "Snelheidscontrole;ll (^s)"
 #define kStrCmdMagnifyToggle "Schermvergroting (^g)"
 #define kStrCmdFullScrnToggle "Gebruik het volledig scherm (^f)"
-#define kStrCmdCtrlKeyToggle "Ge;uemuleerde ;]control;} toets (^k)"
+#define kStrCmdCtrlKeyToggle "Ge;uemuleerde ;]^m;} toets (^k)"
 #define kStrCmdReset "Herstart"
 #define kStrCmdInterrupt "Onderbreek"
 #define kStrCmdHelp "Hulp (toon deze pagina)"
@@ -115,7 +115,7 @@
 
 #define kStrNewFullScreen "Volledig scherm gebruiken is ^f."
 
-#define kStrNewCntrlKey "Ge;uemuleerde ;]control;} toets ^k."
+#define kStrNewCntrlKey "Ge;uemuleerde ;]^m;} toets ^k."
 
 #define kStrCmdCancel "annuleer"
 
@@ -162,3 +162,6 @@
 #define kStrAppMenuItemHideOthers "Verberg andere"
 #define kStrAppMenuItemShowAll "Toon alles"
 #define kStrAppMenuItemQuit "Stop ^p"
+
+#define kStrCmdCopyOptions "Kopieer variation options"
+#define kStrHaveCopiedOptions "Variation options gekopieerd"

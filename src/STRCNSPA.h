@@ -24,7 +24,7 @@
 #define kStrAboutMessage "Para mostrar informaci;eon acerca de este programa, use el comando ;]A;} del ^p Modo Control. Para saber m;eas acerca del Modo Control, vea ;[Mas Comandos;ll;{ en el menu ;[Especial;{ ."
 
 #define kStrMoreCommandsTitle "M;eas comandos est;ean disponibles en el modo de control de ^p ."
-#define kStrMoreCommandsMessage "Para entrar en el modo de control, mantenga pulsada la tecla ;]control;} . Seguir;ea en el modo control hasta que suelte la tecla ;]control;} . Pulse ;]H;} en el modo control para listar los comandos disponibles."
+#define kStrMoreCommandsMessage "Para entrar en el modo de control, mantenga pulsada la tecla ;]^c;} . Seguir;ea en el modo control hasta que suelte la tecla ;]^c;} . Pulse ;]H;} en el modo control para listar los comandos disponibles."
 
 #define kStrTooManyImagesTitle "Demasiadas im;eagenes de disco"
 #define kStrTooManyImagesMessage "No se pueden montar tantas im;eagenes de disco. Intente sacar alguna."
@@ -83,7 +83,7 @@
 #define kStrDisclaimer " ^p es distribuido con la esperanza de ser ;eutil, pero SIN NINGUNA GARANTIA;ls incluso sin la garant;eia impl;eicita de MERCANTIBILIDAD O ADECUACION PARA UN USO PARTICULAR."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Para salir del Modo Control, suelte la tecla ;]control;} ."
+#define kStrHowToLeaveControl "Para salir del Modo Control, suelte la tecla ;]^c;} ."
 #define kStrHowToPickACommand "Sin;eo, pulse una letra. Los comandos disponibles son:"
 #define kStrCmdAbout "Acerca de (informaci;eon sobre versi;eon)"
 #define kStrCmdOpenDiskImage "Abrir imagen disco;ll"
@@ -91,7 +91,7 @@
 #define kStrCmdSpeedControl "Control de velocidad;ll (^s)"
 #define kStrCmdMagnifyToggle "Magnificaci;eon (^g)"
 #define kStrCmdFullScrnToggle "Pantalla completa (^f)"
-#define kStrCmdCtrlKeyToggle "Toggle emulaci;eon tecla ;]control;} (^k)"
+#define kStrCmdCtrlKeyToggle "Toggle emulaci;eon tecla ;]^m;} (^k)"
 #define kStrCmdReset "Reset"
 #define kStrCmdInterrupt "Interrumpir"
 #define kStrCmdHelp "Ayuda (mostrar esta p;eagina)"
@@ -115,7 +115,7 @@
 
 #define kStrNewFullScreen "Pantalla completa est;ea ^f."
 
-#define kStrNewCntrlKey "Emulado tecla ;]control;} ^k."
+#define kStrNewCntrlKey "Emulado tecla ;]^m;} ^k."
 
 #define kStrCmdCancel "cancelar"
 
@@ -162,3 +162,6 @@
 #define kStrAppMenuItemHideOthers "Ocultar otros"
 #define kStrAppMenuItemShowAll "Mostrar todo"
 #define kStrAppMenuItemQuit "Salir de ^p"
+
+#define kStrCmdCopyOptions "Copiar variation options"
+#define kStrHaveCopiedOptions "Variation options copiadas"

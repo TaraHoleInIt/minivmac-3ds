@@ -24,7 +24,7 @@
 #define kStrAboutMessage "Aby obejrze;ec informacje o tym programie u;dzyj komendy ;]A;} w ^p Trybie Kontroli. Aby dowiedzie;ec si;de wi;decej o tym trybie kliknij przycisk ;[Wi;decej komend;ll;{ w menu ;[Specjalne;{."
 
 #define kStrMoreCommandsTitle "Wi;decej komend jest dost;depnych w ^p Trybie Kontroli."
-#define kStrMoreCommandsMessage "Aby wej;es;ec w Tryb Kontroli przytrzymaj przycisk Control. Pozostaniesz w Trybie Kontroli dop;eoki nie pu;escisz tego klawisza. Kliknij H aby wy;eswietli;ec Pomoc."
+#define kStrMoreCommandsMessage "Aby wej;es;ec w Tryb Kontroli przytrzymaj przycisk ^c. Pozostaniesz w Trybie Kontroli dop;eoki nie pu;escisz tego klawisza. Kliknij H aby wy;eswietli;ec Pomoc."
 
 #define kStrTooManyImagesTitle "Za du;dzo obraz;eow dysk;eow"
 #define kStrTooManyImagesMessage "Nie mog;de zamontowa;ec tylu dysk;eow. Odmontowywanie jednego."
@@ -83,7 +83,7 @@
 #define kStrDisclaimer " ^p is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;ls without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
 
 /* Help Screen */
-#define kStrHowToLeaveControl "Aby opu;esci;ec Tryb Kontroli pu;es;ec klawisz Control."
+#define kStrHowToLeaveControl "Aby opu;esci;ec Tryb Kontroli pu;es;ec klawisz ^c."
 #define kStrHowToPickACommand "Naci;esnij liter;de. Dost;depne komendy to:"
 #define kStrCmdAbout "O programie (szczeg;eo;dly wersji);ll"
 #define kStrCmdOpenDiskImage "Otw;eorz obraz dysku;ll"
@@ -91,7 +91,7 @@
 #define kStrCmdSpeedControl "Kontrola szybko;esci;ll (^s)"
 #define kStrCmdMagnifyToggle "Skalowanie (^g)"
 #define kStrCmdFullScrnToggle "Pe;dlny ekran (^f)"
-#define kStrCmdCtrlKeyToggle "Emulowany klawisz Control (^k)"
+#define kStrCmdCtrlKeyToggle "Emulowany klawisz ^m (^k)"
 #define kStrCmdReset "Reset"
 #define kStrCmdInterrupt "Przerwanie"
 #define kStrCmdHelp "Pomoc (ta strona)"
@@ -115,7 +115,7 @@
 
 #define kStrNewFullScreen "Pe;dlny ekran jest ^f."
 
-#define kStrNewCntrlKey "Emulowany klawiszem Control jest ^k."
+#define kStrNewCntrlKey "Emulowany klawiszem ^m jest ^k."
 
 #define kStrCmdCancel "anuluj"
 
@@ -162,3 +162,7 @@
 #define kStrAppMenuItemHideOthers "Ukryj pozosta;dle"
 #define kStrAppMenuItemShowAll "Poka;dz wszystkie"
 #define kStrAppMenuItemQuit "Zako;encz ^p"
+
+#define kStrCntrlKyName "Control"
+#define kStrCmdCopyOptions "Kopiuj variation options"
+#define kStrHaveCopiedOptions "Variation options kopiowane"

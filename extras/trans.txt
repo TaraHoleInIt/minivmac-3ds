@@ -1,0 +1,32 @@
+# Some source files are simple transformations of other source
+# files. Here are some MPW scripts to help keep them in sync.
+
+Set x "rd:t1.txt"
+
+
+Catenate "{my_project_d}"data:src:VIAEMDEV.c > "{x}"
+Open "{x}"
+Set CaseSensitive 1
+Find ¥ "{x}"
+Replace -c ° /'VIA1'/ 'VIA2' "{x}"
+Find ¥ "{x}"
+Replace -c ° /'VIAEMDEV'/ 'VIA2EMDV' "{x}"
+Find ¥ "{x}"
+Replace -c ° /'0x04'([0-9A-FX][0-9A-FX])¨1/ '0x05'¨1 "{x}"
+Unset SearchType
+
+Compare "{my_project_d}"data:src:VIA2EMDV.c "{x}"
+
+
+Catenate "{my_project_d}"data:src:VIA2EMDV.c > "{x}"
+Open "{x}"
+Set CaseSensitive 1
+Find ¥ "{x}"
+Replace -c ° /'VIA2EMDV'/ 'VIAEMDEV' "{x}"
+Find ¥ "{x}"
+Replace -c ° /'VIA2'/ 'VIA1' "{x}"
+Find ¥ "{x}"
+Replace -c ° /'0x05'([0-9A-FX][0-9A-FX])¨1/ '0x04'¨1 "{x}"
+Unset SearchType
+
+Compare "{my_project_d}"data:src:VIAEMDEV.c "{x}"

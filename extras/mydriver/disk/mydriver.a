@@ -1,0 +1,302 @@
+;	mydriver.a
+;
+;	Copyright (C) 2004 Paul C. Pratt
+;
+;	You can redistribute this file and/or modify it under the terms
+;	of version 2 of the GNU General Public License as published by
+;	the Free Software Foundation.  You should have received a copy
+;	of the license along with this file; see the file COPYING.
+;
+;	This file is distributed in the hope that it will be useful,
+;	but WITHOUT ANY WARRANTY; without even the implied warranty of
+;	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;	license for more details.
+
+; most of this is adapted from sample source code from Apple.
+
+FakeSonyDriver MAIN EXPORT
+		BLANKS  ON
+		STRING  ASIS
+
+kqLink        EQU  0
+kqType        EQU  4
+kioTrap       EQU  6
+kioCmdAddr    EQU  8
+kioCompletion EQU 12
+kioResult     EQU 16
+kioNamePtr    EQU 18
+kioVRefNum    EQU 22
+kioRefNum     EQU 24
+kcsCode       EQU 26
+kcsParam      EQU 28
+kioBuffer     EQU 32 ; Buffer to store data into
+kioReqCount   EQU 36 ; Requested Number of Bytes
+kioActCount   EQU 40 ; Actual Number of Bytes obtained
+kioPosMode    EQU 44 ; Positioning Mode
+kioPosOffset  EQU 46 ; Position Offset
+
+killCode   EQU 1 ; KillIO requested
+noQueueBit EQU 9 ; trap word modifier
+JIODone    EQU $08FC
+
+kCmndSonyPrime    EQU $0001
+kCmndSonyControl  EQU $0002
+kCmndSonyStatus   EQU $0003
+kCmndSonyClose    EQU $0004
+kCmndSonyOpenA    EQU $0005
+kCmndSonyOpenB    EQU $0006
+kCmndSonyOpenC    EQU $0007
+kCmndSonyMount    EQU $0008
+
+DHeader
+DFlags   DC.W  $4F00              ; need lock, responds to all requests
+DDelay   DC.W  0                  ; none
+DEMask   DC.W  0                  ; DA event mask
+DMenu    DC.W  0                  ; no menu
+         DC.W  DOpen - DHeader    ; offset to Open
+         DC.W  DPrime - DHeader   ; offset to Prime
+         DC.W  DControl - DHeader ; offset to Control
+         DC.W  DStatus - DHeader  ; offset to Status
+         DC.W  DClose - DHeader   ; offset to Close
+Name     DC.B  5 ; length of name
+         DC.B  '.Sony'
+         ALIGN 2                  ; word alignment
+
+DPrime
+	MOVEM.L    A0-A1, -(SP)    ; push ParmBlkPtr, DCtlPtr for C
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndSonyPrime, -(A7)
+	BRA.B      DPrimeStatusCommon
+
+DControl
+	MOVEM.L    A0-A1, -(SP)    ; push ParmBlkPtr, DCtlPtr for C
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndSonyControl, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; save result code
+	MOVEM.L    (SP)+, A0-A1    ; restore ParmBlkPtr, DCtlPtr
+	CMPI.W     #killCode,kcsCode(A0) ; test for KillIO call (special case)
+	BNE.B      IOReturn
+	RTS                     ; KillIO must always return via RTS
+
+DStatus
+	MOVEM.L    A0-A1, -(SP)    ; push ParmBlkPtr, DCtlPtr for C
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndSonyStatus, -(A7)
+DPrimeStatusCommon
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; save result code
+	MOVEM.L    (SP)+, A0-A1    ; restore ParmBlkPtr, DCtlPtr
+
+IOReturn
+	MOVE.W   kioTrap(A0),D1
+	BTST     #noQueueBit,D1 ; immediate calls are not queued, and must RTS
+	BEQ.B    @Queued        ; branch if queued
+
+@NotQueued
+	TST.W    D0             ; test asynchronous return result
+	BLE.B    @ImmedRTS      ; result must be <= 0
+	CLR.W    D0             ; "in progress" result (> 0) not passed back
+
+@ImmedRTS
+	MOVE.W   D0,kioResult(A0)   ; for immediate calls you must explicitly
+	                            ; place the result in the ioResult field
+	RTS
+
+@Queued
+	TST.W    D0             ; test asynchronous return result
+	BLE.B    @MyIODone      ; I/O is complete if result <= 0
+	CLR.W    D0             ; "in progress" result (> 0) not passed back
+	RTS
+
+@MyIODone
+	MOVE.L   JIODone,-(SP)  ; push IODone jump vector onto stack
+	RTS
+
+DClose
+	MOVEM.L    A0-A1, -(SP)    ; push ParmBlkPtr, DCtlPtr for C
+	SUBQ       #2, A7 ; result code
+	MOVE.W     #kCmndSonyClose, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; save result code
+	MOVEM.L    (SP)+, A0-A1    ; restore ParmBlkPtr, DCtlPtr
+	RTS
+
+DUpdate
+	MOVEM.L    D0-D2/A0-A1,-(SP)
+	MOVE.L     20(A7),D0 ; data = what was on top of stack before 5 registers pushed
+
+	SUBQ       #4, A7 ; room for eventMsg
+	MOVE.L     D0,-(A7) ; data
+	SUBQ       #2, A7 ; room for result code
+	MOVE.W     #kCmndSonyMount, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D1 ; result code
+	ADDQ       #4, A7 ; skip over data
+	MOVE.L     (A7)+, D0 ; eventMsg
+	TST.W      D1 ; result code
+	BNE.S      @1
+	MOVEA.W    #$0007,A0
+	DC.W       $A02F ; _PostEvent
+@1
+
+	MOVEM.L    (SP)+,D0-D2/A0-A1
+	ADDA.W     #4,A7          ; remove arguments from stack
+	RTE
+
+MyAddDrive64k
+
+; This is only needed for the 64k ROM.
+
+DrvQHdr EQU 776
+RomBase EQU $00400000
+
+	Move.L    D0,6(A0)
+	Lea.L     (DrvQHdr),A1
+	Jmp       (RomBase + 2848)
+
+
+NullTaskProc
+	RTS
+
+DOpen
+	MOVEM.L    D3-D7/A3,-(A7)
+	MOVEM.L    A0-A1, -(SP)    ; push ParmBlkPtr, DCtlPtr for C
+
+	SUBQ       #6, A7 ; room for result code, L
+	MOVE.W     #kCmndSonyOpenA, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; result code
+	MOVE.L     (A7)+, D7 ; L
+
+	CMPI.W     #$FFCF,D0
+	BNE.S      @1
+	; driver already open, change to no error and leave
+	CLR.W      D0
+	BRA        @2
+@1
+	TST.W      D0
+	BNE        @2
+	MOVE.L     D7,D0
+	DC.W       $A71E ; _NewPtr    ,Sys,Clear
+	MOVEA.L    A0,A3
+	MOVE.L     A3,D0
+	BEQ        @6
+
+	SUBA       #16, A7 ; room for various results
+	MOVE.L     A3, -(A7)
+	MOVE.L     D7, -(A7)
+	SUBQ       #2, A7 ; room for result code
+	MOVE.W     #kCmndSonyOpenB, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; result code
+	ADDA.W     #8, A7
+	MOVE.L     (A7)+, D7 ; dvl
+	MOVEQ      #$00, D3
+	MOVE.W     (A7)+, D3 ; step
+	MOVE.W     (A7)+, D4 ; n
+	MOVE.W     (A7)+, D6 ; i
+	MOVE.W     (A7)+, D5 ; driver
+	MOVEA.L    (A7)+, A3 ; NullTask
+
+	TST.W      D0
+	BNE.S      @2
+
+	MOVE.L     A3,D0
+	BEQ.S      @3
+
+	; There is apparently a bug in the time manager
+	; in System 6.0.8, which will cause a crash
+	; if there are no installed time
+	; tasks. So create a time task, since
+	; real disk driver does.
+
+	LEA        NullTaskProc,A0     ; id: 102
+	MOVE.L     A0,$0006(A3)
+	MOVEA.L    A3,A0
+	DC.W       $A058 ; _InsTime
+	BRA.S      @4
+@3
+	LEA        MyAddDrive64k,A0    ; id: 106
+	MOVE.W     #$A04E,D0
+	DC.W       $A047 ; _SetTrapAddress
+	BRA.S      @4
+@5
+	MOVEA.L    D7,A0
+
+	MOVE.W     D6,D0 ; drive number in high word
+	SWAP       D0
+	MOVE.W     D5,D0 ; driver in low word
+
+	DC.W       $A04E ; _AddDrive
+	ADD.L      D3,D7
+	ADDQ.W     #$1,D6
+@4
+	DBF        D4, @5
+
+	PEA        DUpdate
+	SUBQ       #2, A7 ; room for result code
+	MOVE.W     #kCmndSonyOpenC, -(A7)
+
+	LEA        TailData, A0
+	MOVE.L     (A0)+, -(A7)
+	MOVEA.L    (A0), A0
+	MOVE.L     A7, (A0)
+
+	ADDA.W     #6, A7
+	MOVE.W     (A7)+, D0 ; result code
+	ADDA.W     #4, A7
+
+@2
+	; result code should be in D0 when reach here
+
+	MOVEM.L    (A7)+, A0-A1    ; restore ParmBlkPtr, DCtlPtr
+	MOVEM.L    (A7)+, D3-D7/A3
+
+	RTS                     ; open is always immediate, must return via RTS
+@6
+	; _NewPtr failed
+	MOVE.W     #-1, D0
+	BRA.S      @2
+
+TailData
+
+		ENDMAIN
+
+		END
