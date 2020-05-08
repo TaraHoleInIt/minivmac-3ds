@@ -45,8 +45,14 @@ LOCALVAR uint32_t Keys_Up = 0;
 
 /* --- 3DS Framebuffer conversion --- */
 
+#if vMacScreenWidth > 512
+#define MainTextureWidth 1024
+#define MainTextureHeight 1024
+#else
 #define MainTextureWidth 512
 #define MainTextureHeight 512
+#endif
+
 #define MainTextureSize ( MainTextureWidth * MainTextureHeight * sizeof( uint16_t ) )
 
 #define MainScreenWidth 400
@@ -111,6 +117,39 @@ LOCALVAR C2D_Sprite ScreenSpriteSub = {
 LOCALVAR C3D_RenderTarget* MainRenderTarget = NULL;
 LOCALVAR uint16_t* MainScreenBuffer = NULL;
 
+typedef void ( *ConvertScreenProc ) ( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t InputLength );
+
+#if vMacScreenWidth <= 512
+LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int EmScreenPitch, ConvertScreenProc Convert ) {
+	size_t Size = ( Bottom - Top ) * EmScreenPitch;
+
+	Convert(
+		&Src[ Top * EmScreenPitch ],
+		&MainScreenBuffer[ Top * MainTextureWidth ],
+		Size
+	);
+}
+#else
+LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int EmScreenPitch, ConvertScreenProc Convert ) {
+	uint16_t* Dest = MainScreenBuffer;
+	int y = 0;
+
+	Src+= ( Top * EmScreenPitch );
+	Dest+= ( Top * MainTextureWidth );
+
+	for ( y = 0; y < ( Bottom - Top ); y++ ) {
+		Convert(
+			Src,
+			Dest,
+			EmScreenPitch
+		);
+
+		Src+= EmScreenPitch;
+		Dest+= MainTextureWidth;
+	}
+}
+#endif
+
 // Copies framebuffer data into the main sprite texture
 LOCALPROC UpdateFBTexture( size_t Size ) {
 	GSPGPU_FlushDataCache( MainScreenBuffer, Size );
@@ -165,6 +204,7 @@ LOCALPROC Unpack_1BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Inpu
 
 // Udates the main screen texture with newly converted 1bpp image data
 LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom ) {
+#if 0
     size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 8 ) );
 
 	Unpack_1BPP(
@@ -172,7 +212,8 @@ LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom ) {
 		&MainScreenBuffer[ Top * MainTextureWidth ],
 		Size
 	);
-
+#endif
+	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenMonoByteWidth, Unpack_1BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 
@@ -225,6 +266,7 @@ LOCALPROC Unpack2BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 
 // Updates the main screen texture with a 2bpp framebuffer
 LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom ) {
+#if 0
 	size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 4 ) );
 
 	Unpack2BPP(
@@ -232,7 +274,9 @@ LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom ) {
 		&MainScreenBuffer[ Top * MainTextureWidth ],
 		Size
 	);
+#endif
 
+	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, Unpack2BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -275,14 +319,7 @@ LOCALPROC Unpack4BPP( const uint8_t* PixelsIn, uint32_t* PixelsOut, size_t Input
 
 // Updates the main screen texture with a 4bpp packed framebuffer
 LOCALPROC UpdateMainScreen_4BPP( const uint8_t* Src, int Top, int Bottom ) {
-	size_t Size = ( Bottom - Top ) * ( vMacScreenWidth / 2 );
-
-	Unpack4BPP(
-		&Src[ Top * ( vMacScreenWidth / 2 ) ],
-		&MainScreenBuffer[ Top * MainTextureWidth ],
-		Size
-	);
-
+	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, ( ConvertScreenProc ) Unpack4BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -313,6 +350,7 @@ LOCALPROC Unpack8BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 
 // Updates the main screen with converted 8bit image data
 LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom ) {
+#if 0
 	size_t Size = ( Bottom - Top ) * vMacScreenWidth;
 
 	Unpack8BPP(
@@ -320,7 +358,8 @@ LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom ) {
 		&MainScreenBuffer[ Top * MainTextureWidth ],
 		Size
 	);
-
+#endif
+	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, Unpack8BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -341,7 +380,7 @@ LOCALFUNC bool CreateMainScreen( void ) {
 		if ( MainScreenBuffer ) {
 			memset( MainScreenBuffer, 0, MainTextureSize );
 
-			Result = C3D_TexInit( ScreenSprite.image.tex, 512, 512, GPU_RGB565 );
+			Result = C3D_TexInit( ScreenSprite.image.tex, MainTextureWidth, MainTextureWidth, GPU_RGB565 );
 
 			if ( Result ) {
 				// Point to the main screen image
@@ -661,7 +700,12 @@ LOCALPROC HighlightTheDownKeys( void ) {
 	}
 }
 
+const char* TestStr = "start";
+
 LOCALPROC DrawSubScreen( void ) {
+	float x = 0;
+	float y = 0;
+
     C2D_TargetClear( SubRenderTarget, BGColor );
     C2D_SceneBegin( SubRenderTarget );
 
@@ -680,7 +724,15 @@ LOCALPROC DrawSubScreen( void ) {
 			C2D_DrawSprite( &KB_Lowercase_Sprite );
 		}
 
-		C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 0.5f, 1.0f, 1.0f );
+		C2D_TextBufClear( TextBuffer );
+		C2D_TextFontParse( &MenubarText, ChicagoFLF, TextBuffer, TestStr );
+
+		C2D_TextGetDimensions( &MenubarText, 1.0f, 1.0f, &x, &y );
+
+		MenubarTextX = ( SubScreenWidth / 2 ) - ( x / 2 );
+		MenubarTextY = 0;
+
+		C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 1.0f, 1.0f, 1.0f );
 
 		// This needs special handling?
 		DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
@@ -2258,6 +2310,8 @@ label_retry:
 
 	OnTrueTime = TrueEmulatedTime;
 
+	TestStr = ( OnTrueTime ) ? "OnTime" : "Slow";
+
 #if dbglog_TimeStuff
 	dbglog_writelnNum("WaitForNextTick, OnTrueTime", OnTrueTime);
 #endif
@@ -2327,15 +2381,18 @@ LOCALPROC UnallocMyMemory(void)
 	}
 }
 
-LOCALFUNC void VBlankEvent( void* Param ) {
-}
-
 LOCALFUNC blnr InitOSGLU(void)
 {
-	chdir( "/3ds/minivmac/" );
-	osSetSpeedupEnable( true );
+	bool IsNew3DS = false;
+
+	APT_CheckNew3DS( &IsNew3DS );
+
+	if ( IsNew3DS ) {
+		osSetSpeedupEnable( true );
+	}
 
 	InitKeyCodes( );
+	chdir( "/3ds/minivmac/" );
 
 	if (AllocMyMemory())
 #if dbglog_HAVE

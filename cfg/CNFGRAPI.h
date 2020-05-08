@@ -21,11 +21,10 @@
 #include <unistd.h>
 
 
-#define RomFileName "vMac.ROM"
-#define kCheckSumRom_Size 0x00020000
-#define kRomCheckSum1 0x4D1EEEE1
-#define kRomCheckSum2 0x4D1EEAE1
-#define kRomCheckSum3 0x4D1F8172
+#define RomFileName "MacII.ROM"
+#define kCheckSumRom_Size 0x00040000
+#define kRomCheckSum1 0x9779D2C4
+#define kRomCheckSum2 0x97221136
 #define RomStartCheckSum 1
 #define EnableDragDrop 0
 #define SaveDialogEnable 1
@@ -65,7 +64,7 @@
 #define MyWindowScale 2
 #define WantInitRunInBackground 1
 #define WantInitNotAutoSlow 1
-#define WantInitSpeedValue 2
+#define WantInitSpeedValue 1
 #define WantEnblCtrlInt 1
 #define WantEnblCtrlRst 1
 #define WantEnblCtrlKtg 1
@@ -85,4 +84,4 @@
 #define kMaintainerName "Tara Keeling"
 #define kStrHomePage "https://github.com/TaraHoleInIt"
 
-#define kBldOpts "-br 36 -t 3dsa -sound 1 -speed 2 -bg 1 -as 0 -ta 0"
+#define kBldOpts "-br 36 -t 3dsa -m II -depth 0 -speed 1 -bg 1 -ta 0"
