@@ -64,7 +64,7 @@
 #define MyWindowScale 2
 #define WantInitRunInBackground 1
 #define WantInitNotAutoSlow 1
-#define WantInitSpeedValue 1
+#define WantInitSpeedValue 2
 #define WantEnblCtrlInt 1
 #define WantEnblCtrlRst 1
 #define WantEnblCtrlKtg 1
@@ -84,4 +84,4 @@
 #define kMaintainerName "Tara Keeling"
 #define kStrHomePage "https://github.com/TaraHoleInIt"
 
-#define kBldOpts "-br 36 -t 3dsa -m II -sound 1 -speed 1 -bg 1 -ta 0"
+#define kBldOpts "-br 36 -t 3dsa -m II -hres 1024 -vres 768 -sound 1 -bg 1 -ta 0"

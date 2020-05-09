@@ -2259,7 +2259,7 @@ LOCALPROC CheckForSystemEvents(void)
 
 		SubScreenUpdateInput( );
 
-		if ( ( Keys_Up & KEY_START ) && ( Keys_Up && KEY_SELECT ) ) {
+		if ( ( Keys_Held & KEY_START ) && ( Keys_Held & KEY_SELECT ) ) {
 			ForceMacOff = trueblnr;
 		}
 
@@ -2310,7 +2310,7 @@ label_retry:
 
 	OnTrueTime = TrueEmulatedTime;
 
-	TestStr = ( OnTrueTime ) ? "OnTime" : "Slow";
+	TestStr = ( EmLagTime ) ? "<1x" : ">=1x";
 
 #if dbglog_TimeStuff
 	dbglog_writelnNum("WaitForNextTick, OnTrueTime", OnTrueTime);
@@ -2409,6 +2409,13 @@ LOCALFUNC blnr InitOSGLU(void)
 	if (CreateMainWindow())
 	if (WaitForRom())
 	{
+#if vMacScreenDepth > 0
+		// Disable sound for colour screens on o3ds
+		if ( IsNew3DS == false ) {
+			HaveSoundOut = falseblnr;
+		}
+#endif
+
 		return trueblnr;
 	}
 	return falseblnr;

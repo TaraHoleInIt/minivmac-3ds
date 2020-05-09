@@ -83,7 +83,7 @@ typedef unsigned long long ui6b;
 
 #define vMacScreenHeight 480
 #define vMacScreenWidth 640
-#define vMacScreenDepth 3
+#define vMacScreenDepth 2
 
 #define kROM_Size 0x00040000
 

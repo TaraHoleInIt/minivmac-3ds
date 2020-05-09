@@ -1,4 +1,6 @@
 .vscode/
 bld/
 build/
+*build/
+release/
 
