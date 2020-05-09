@@ -33,6 +33,7 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	= 'Mini vMac 3DS'
 APP_DESCRIPTION = 'Macintosh Plus'
+APP_AUTHOR	= 'TarableCode'
 ICON		= ../icon.png
 #TARGET		:=	$(notdir $(CURDIR))
 TARGET		:=	Mini-vMac-3DS-Macintosh-Plus
