@@ -30,7 +30,9 @@
 #include "STRCONST.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <dirent.h>
 
 GLOBALPROC DoKeyCode( int Key, blnr Down );
 
@@ -488,7 +490,8 @@ LOCALVAR C2D_Sprite InsertSprite;
 
 LOCALVAR C2D_Font ChicagoFLF;
 
-LOCALVAR C2D_TextBuf TextBuffer;
+LOCALVAR C2D_TextBuf MenubarTextBuffer;
+LOCALVAR C2D_TextBuf FileSelectTextBuffer;
 
 LOCALVAR C2D_Text MenubarText;
 
@@ -512,8 +515,117 @@ LOCALVAR blnr HideUI = falseblnr;
 #define ScrollMaxX ( int ) -( ( ( float ) vMacScreenWidth * ScaleX ) - MainScreenWidth )
 #define ScrollMaxY ( int ) -( ( ( float ) vMacScreenHeight * ScaleY ) - MainScreenHeight )
 
-int ScrollX = 0;
-int ScrollY = 0;
+#define FileSelectLineCount 16
+#define FileSelectMaxCharsPerLine 16
+
+#define StartScrollingOnLine ( FileSelectMaxCharsPerLine - 2 )
+
+static C2D_Text FileSelectLines[ FileSelectLineCount ];
+
+#define MaxEntriesInDirectory 256
+#define MaxDirectoryEntryLength 32
+
+struct dirent DirectoryEntries[ MaxEntriesInDirectory ];
+int EntriesInDirectory = 0;
+
+int SelectedEntry = 0;
+int ScrollOffset = 0;
+
+LOCALFUNC int DirentCompare( const void* A, const void* B ) {
+    struct dirent* Dir1 = ( struct dirent* ) A;
+    struct dirent* Dir2 = ( struct dirent* ) B;
+
+    // Both are directories, compare names
+    if ( Dir1->d_type == DT_DIR && Dir2->d_type == DT_DIR ) {
+        return strcmp( Dir1->d_name, Dir2->d_name );
+    }
+
+    // A > B because A is a directory and B is not
+    if ( Dir1->d_type == DT_DIR && Dir2->d_type != DT_DIR ) {
+        return -1;
+    }
+
+    // B > A because B is a directory and A is not
+    if ( Dir1->d_type != DT_DIR && Dir2->d_type == DT_DIR ) {
+        return 1;
+    }
+
+    // Everything else
+    return strcasecmp( Dir1->d_name, Dir2->d_name );
+}
+
+LOCALPROC InsertUI_MakeText( void ) {
+    const char* TypeFormat = NULL;
+    char TempBuffer[ 256 ];
+    int i = 0;
+
+    C2D_TextBufClear( FileSelectTextBuffer );
+
+    for ( i = 0; i < FileSelectLineCount && i < EntriesInDirectory; i++ ) {
+        TypeFormat = ( DirectoryEntries[ i + ScrollOffset ].d_type == DT_DIR ) ? "[%s]" : "%s";
+        snprintf( TempBuffer, sizeof( TempBuffer ), TypeFormat, DirectoryEntries[ i + ScrollOffset ].d_name );
+
+        C2D_TextFontParse( &FileSelectLines[ i ], ChicagoFLF, FileSelectTextBuffer, TempBuffer );
+        C2D_TextOptimize( &FileSelectLines[ i ] );
+    }
+}
+
+LOCALPROC InsertUI_Init( void ) {
+    // Zero out all directory entries
+    memset( DirectoryEntries, 0, sizeof( DirectoryEntries ) );
+
+    // Add the level up directory as the first entry
+    strcpy( DirectoryEntries[ 0 ].d_name, ".." );
+    DirectoryEntries[ 0 ].d_type = DT_DIR;
+
+    EntriesInDirectory = 1;
+    SelectedEntry = 0;
+    ScrollOffset = 0;
+}
+
+LOCALPROC InsertUI_Populate( void ) {
+    struct dirent* Entry = NULL;
+    DIR* TheCWD = NULL;
+
+    InsertUI_Init( );
+
+    // Open the current working directory
+    if ( ( TheCWD = opendir( "." ) ) != NULL ) {
+        do {
+            // Read through directory entries
+            Entry = readdir( TheCWD );
+
+            if ( Entry ) {
+                // Hard limit to prevent the need of runtime memory allocation
+                if ( EntriesInDirectory < MaxEntriesInDirectory ) {
+                    // If there's space in the directory entries array, add this entry
+                    memcpy( &DirectoryEntries[ EntriesInDirectory ], Entry, sizeof( struct dirent ) );
+                    EntriesInDirectory++; 
+
+                    //printf( "Added entry %s\n", Entry->d_name );
+                } else {
+                    // No more room, setting this to NULL allows the loop to end early
+                    Entry = NULL;
+                }
+            }
+        }
+        while ( Entry ); // While there are still more directory entries
+
+        closedir( TheCWD );
+    }
+
+    if ( EntriesInDirectory >= 1 ) {
+        qsort( &DirectoryEntries[ 1 ], EntriesInDirectory - 1, sizeof( struct dirent ), DirentCompare );
+    }
+
+    // Turn filename strings into font buffers
+    InsertUI_MakeText( );
+}
+
+LOCALVAR blnr IsInFileSelect = false;
+
+LOCALVAR int ScrollX = 0;
+LOCALVAR int ScrollY = 0;
 
 LOCALPROC UpdateScroll( void ) {
 	ScrollX = ( MainScreenWidth / 2 ) - CurMouseH;
@@ -610,10 +722,10 @@ LOCALFUNC bool CreateSubScreen( void ) {
                     ChicagoFLF = C2D_FontLoadFromMem( chicagoflf_bin, chicagoflf_bin_size );
 
                     if ( ChicagoFLF ) {
-                        TextBuffer = C2D_TextBufNew( 4096 );
+                        MenubarTextBuffer = C2D_TextBufNew( 1024 );
 
-                        if ( TextBuffer ) {
-                            C2D_TextFontParse( &MenubarText, ChicagoFLF, TextBuffer, "Mini vMac 3DS @ " __DATE__ " at " __TIME__ );
+                        if ( MenubarTextBuffer ) {
+                            C2D_TextFontParse( &MenubarText, ChicagoFLF, MenubarTextBuffer, "Mini vMac 3DS @ " __DATE__ " at " __TIME__ );
                             C2D_TextGetDimensions( &MenubarText, 1.0f, 1.0f, &w, &h );
 
                             MenubarTextX = ( SubScreenWidth / 2 ) - ( w / 2 );
@@ -621,7 +733,11 @@ LOCALFUNC bool CreateSubScreen( void ) {
 
                             C2D_TextOptimize( &MenubarText );
 
-                            return true;
+							FileSelectTextBuffer = C2D_TextBufNew( 4096 );
+
+							if ( FileSelectTextBuffer ) {
+								return true;
+							}
                         }
                     }
                 }
@@ -645,9 +761,13 @@ LOCALPROC DestroySubScreen( void ) {
         C2D_SpriteSheetFree( TitlebarSheet );
     }
 
-    if ( TextBuffer ) {
-        C2D_TextBufDelete( TextBuffer );
+    if ( MenubarTextBuffer ) {
+        C2D_TextBufDelete( MenubarTextBuffer );
     }
+
+	if ( FileSelectTextBuffer ) {
+		C2D_TextBufDelete( FileSelectTextBuffer );
+	}
 
     if ( ChicagoFLF ) {
         C2D_FontFree( ChicagoFLF );
@@ -705,40 +825,71 @@ const char* TestStr = "start";
 LOCALPROC DrawSubScreen( void ) {
 	float x = 0;
 	float y = 0;
+	int i = 0;
 
     C2D_TargetClear( SubRenderTarget, BGColor );
     C2D_SceneBegin( SubRenderTarget );
 
 	if ( HideUI == falseblnr ) {
-		C2D_DrawSprite( &TitlebarSprite );
+		if ( IsInFileSelect == true ) {
+			C2D_TargetClear( SubRenderTarget, C2D_Color32( 255, 255, 255, 255 ) );
 
-		C2D_DrawSprite( &MenuSprite );
-		C2D_DrawSprite( &ScaleSprite );
-		C2D_DrawSprite( &InsertSprite );
+			for ( i = 0; i < FileSelectLineCount && i < EntriesInDirectory; i++ ) {
+				C2D_DrawText( 
+					&FileSelectLines[ i ],
+					0,
+					5,
+					i * 16,
+					0.0f,
+					1.0f,
+					1.0f
+				);
 
-		if ( ShiftHeld ) {
-			C2D_DrawSprite( &KB_Shift_Sprite );
-		} else if ( CapsHeld ) {
-			C2D_DrawSprite( &KB_Uppercase_Sprite );
+				if ( i + ScrollOffset == SelectedEntry ) {
+					C2D_DrawRectangle(
+						0.0f,
+						i * 16,
+						0.0f,
+						SubScreenWidth,
+						16.0f,
+						C2D_Color32( 0, 0, 0, 128 ),
+						C2D_Color32( 0, 0, 0, 128 ),
+						C2D_Color32( 0, 0, 0, 128 ),
+						C2D_Color32( 0, 0, 0, 128 )
+					);
+				}
+			}
 		} else {
-			C2D_DrawSprite( &KB_Lowercase_Sprite );
+			C2D_DrawSprite( &TitlebarSprite );
+
+			C2D_DrawSprite( &MenuSprite );
+			C2D_DrawSprite( &ScaleSprite );
+			C2D_DrawSprite( &InsertSprite );
+
+			if ( ShiftHeld ) {
+				C2D_DrawSprite( &KB_Shift_Sprite );
+			} else if ( CapsHeld ) {
+				C2D_DrawSprite( &KB_Uppercase_Sprite );
+			} else {
+				C2D_DrawSprite( &KB_Lowercase_Sprite );
+			}
+
+			C2D_TextBufClear( MenubarTextBuffer );
+			C2D_TextFontParse( &MenubarText, ChicagoFLF, MenubarTextBuffer, TestStr );
+
+			C2D_TextGetDimensions( &MenubarText, 1.0f, 1.0f, &x, &y );
+
+			MenubarTextX = ( SubScreenWidth / 2 ) - ( x / 2 );
+			MenubarTextY = 0;
+
+			C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 1.0f, 1.0f, 1.0f );
+
+			// This needs special handling?
+			DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
+			DrawKeyHighlight( ScaleHeld ? TM_Scale : 0xFF );
+
+			HighlightTheDownKeys( );
 		}
-
-		C2D_TextBufClear( TextBuffer );
-		C2D_TextFontParse( &MenubarText, ChicagoFLF, TextBuffer, TestStr );
-
-		C2D_TextGetDimensions( &MenubarText, 1.0f, 1.0f, &x, &y );
-
-		MenubarTextX = ( SubScreenWidth / 2 ) - ( x / 2 );
-		MenubarTextY = 0;
-
-		C2D_DrawText( &MenubarText, 0, MenubarTextX, MenubarTextY, 1.0f, 1.0f, 1.0f );
-
-		// This needs special handling?
-		DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
-		DrawKeyHighlight( ScaleHeld ? TM_Scale : 0xFF );
-
-		HighlightTheDownKeys( );
 	} else {
 		C2D_DrawSprite( &ScreenSpriteSub );
 	}
@@ -755,90 +906,145 @@ LOCALPROC DrawSubScreen( void ) {
 LOCALVAR int MouseX = 0;
 LOCALVAR int MouseY = 0;
 
+LOCALFUNC blnr Sony_Insert2(char *s);
+
 LOCALPROC SubScreenUpdateInput( void ) {
     int TouchX = 0;
     int TouchY = 0;
     
 	if ( HideUI == false ) {
-		if ( Keys_Down & KEY_TOUCH ) {
-			TouchX = TouchPad.px / 8;
-			TouchY = TouchPad.py / 8;
+		if ( IsInFileSelect == true ) {
+			if ( Keys_Down & KEY_DUP ) {
+				SelectedEntry--;
+				ScrollOffset--;
 
-			TouchX = ( TouchX < 0 ) ? 0 : TouchX;
-			TouchY = ( TouchY < 0 ) ? 0 : TouchY;
+				SelectedEntry = SelectedEntry < 0 ? 0 : SelectedEntry;
+				ScrollOffset = ScrollOffset < 0 ? 0 : ScrollOffset;
 
-			TouchX = ( TouchX >= TouchmapWidth ) ? TouchmapWidth - 1 : TouchX;
-			TouchY = ( TouchY >= TouchmapHeight ) ? TouchmapHeight - 1 : TouchY;
+				InsertUI_MakeText( );
+			}
 
-			TouchKeyDown = touchmap_bin[ TouchX + ( TouchY * TouchmapWidth ) ];
+			if ( Keys_Down & KEY_DDOWN ) {
+				SelectedEntry++;
+				SelectedEntry = SelectedEntry >= EntriesInDirectory ? EntriesInDirectory - 1 : SelectedEntry;
 
-			switch ( TouchKeyDown ) {
-				case 0xFF: {
-					break;
+				if ( SelectedEntry >= StartScrollingOnLine ) {
+					ScrollOffset++;
+					ScrollOffset = ScrollOffset >= ( EntriesInDirectory - StartScrollingOnLine ) ? EntriesInDirectory - StartScrollingOnLine - 1 : ScrollOffset;
 				}
-				case TM_Scale: {
-					ToggleScale( );
 
-					ScaleHeld = trueblnr;
-					break;
-				}
-				default: {
-					DoKeyCode( TouchKeyDown, trueblnr );
-					break;
-				}
-			};
-		}
+				InsertUI_MakeText( );
+			}
 
-		if ( Keys_Up & KEY_TOUCH ) {
-			switch ( TouchKeyDown ) {
-				case 0xFF: {
-					break;
-				}
-				case TM_Scale: {
-					ScaleHeld = falseblnr;
-					break;
-				}
-				case TM_Insert: {
-					InsertDisk( );
-					break;
-				}
-				case MKC_Shift: {
-					ShiftHeld = ! ShiftHeld;
+			if ( Keys_Down & KEY_A ) {
+				if ( DirectoryEntries[ SelectedEntry ].d_type == DT_DIR ) {
+					chdir( DirectoryEntries[ SelectedEntry ].d_name );
 
-					DoKeyCode( TouchKeyDown, ShiftHeld );
-					break;
-				}
-				case MKC_Option: {
-					OptionHeld = ! OptionHeld;
+					InsertUI_Populate( );
 
-					DoKeyCode( TouchKeyDown, OptionHeld );
-					break;
+					SelectedEntry = 0;
+					ScrollOffset = 0;
+				} else {
+					Sony_Insert2( DirectoryEntries[ SelectedEntry ].d_name );
+					IsInFileSelect = falseblnr;
+					//printf( "Insert: %s\n", DirectoryEntries[ SelectedEntry ].d_name );
 				}
-				case MKC_Command: {
-					CommandHeld = ! CommandHeld;
+			}
 
-					DoKeyCode( TouchKeyDown, CommandHeld );
-					break;
-				}
-				case MKC_CapsLock: {
-					CapsHeld = ! CapsHeld;
+			if ( Keys_Down & KEY_B ) {
+				chdir( ".." );
 
-					DoKeyCode( TouchKeyDown, CapsHeld );
-					break;
-				}
-				case MKC_CM: {
-					ControlHeld = ! ControlHeld;
+				InsertUI_Populate( );
 
-					DoKeyCode( TouchKeyDown, ControlHeld );
-					break;
-				}
-				default: {
-					DoKeyCode( TouchKeyDown, falseblnr );
-					break;
-				}
-			};
+				SelectedEntry = 0;
+				ScrollOffset = 0;
+			}
 
-			TouchKeyDown = 0xFF;
+			if ( Keys_Down & KEY_X ) {
+				IsInFileSelect = falseblnr;
+			}
+		} else {
+			if ( Keys_Down & KEY_TOUCH ) {
+				TouchX = TouchPad.px / 8;
+				TouchY = TouchPad.py / 8;
+
+				TouchX = ( TouchX < 0 ) ? 0 : TouchX;
+				TouchY = ( TouchY < 0 ) ? 0 : TouchY;
+
+				TouchX = ( TouchX >= TouchmapWidth ) ? TouchmapWidth - 1 : TouchX;
+				TouchY = ( TouchY >= TouchmapHeight ) ? TouchmapHeight - 1 : TouchY;
+
+				TouchKeyDown = touchmap_bin[ TouchX + ( TouchY * TouchmapWidth ) ];
+
+				switch ( TouchKeyDown ) {
+					case 0xFF: {
+						break;
+					}
+					case TM_Scale: {
+						ToggleScale( );
+
+						ScaleHeld = trueblnr;
+						break;
+					}
+					default: {
+						DoKeyCode( TouchKeyDown, trueblnr );
+						break;
+					}
+				};
+			}
+
+			if ( Keys_Up & KEY_TOUCH ) {
+				switch ( TouchKeyDown ) {
+					case 0xFF: {
+						break;
+					}
+					case TM_Scale: {
+						ScaleHeld = falseblnr;
+						break;
+					}
+					case TM_Insert: {
+						InsertUI_Populate( );
+						IsInFileSelect = trueblnr;
+						break;
+					}
+					case MKC_Shift: {
+						ShiftHeld = ! ShiftHeld;
+
+						DoKeyCode( TouchKeyDown, ShiftHeld );
+						break;
+					}
+					case MKC_Option: {
+						OptionHeld = ! OptionHeld;
+
+						DoKeyCode( TouchKeyDown, OptionHeld );
+						break;
+					}
+					case MKC_Command: {
+						CommandHeld = ! CommandHeld;
+
+						DoKeyCode( TouchKeyDown, CommandHeld );
+						break;
+					}
+					case MKC_CapsLock: {
+						CapsHeld = ! CapsHeld;
+
+						DoKeyCode( TouchKeyDown, CapsHeld );
+						break;
+					}
+					case MKC_CM: {
+						ControlHeld = ! ControlHeld;
+
+						DoKeyCode( TouchKeyDown, ControlHeld );
+						break;
+					}
+					default: {
+						DoKeyCode( TouchKeyDown, falseblnr );
+						break;
+					}
+				};
+
+				TouchKeyDown = 0xFF;
+			}
 		}
 	} else {
 		// Mouse mode
@@ -2233,10 +2439,12 @@ LOCALPROC WaitForTheNextEvent(void)
 }
 
 LOCALPROC HandleDPADKey( int DSKey, int MacKey ) {
-	if ( Keys_Held & DSKey ) {
-		DoKeyCode( MacKey, trueblnr );
-	} else {
-		DoKeyCode( MacKey, falseblnr );
+	if ( IsInFileSelect == falseblnr ) {
+		if ( Keys_Held & DSKey ) {
+			DoKeyCode( MacKey, trueblnr );
+		} else {
+			DoKeyCode( MacKey, falseblnr );
+		}
 	}
 }
 
@@ -2381,6 +2589,9 @@ LOCALPROC UnallocMyMemory(void)
 	}
 }
 
+extern void Profile_Start( void );
+extern void Profile_Stop( void );
+
 LOCALFUNC blnr InitOSGLU(void)
 {
 	bool IsNew3DS = false;
@@ -2460,10 +2671,14 @@ int main(int argc, char **argv)
 	my_argc = argc;
 	my_argv = argv;
 
+	//Profile_Start( );
+
 	ZapOSGLUVars();
 	if (InitOSGLU()) {
 		ProgramMain();
 	}
+
+	//Profile_Stop( );
 	UnInitOSGLU();
 
 	return 0;

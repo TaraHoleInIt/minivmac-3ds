@@ -32,7 +32,7 @@ include $(DEVKITARM)/3ds_rules
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
 APP_TITLE	= 'Mini vMac 3DS'
-APP_DESCRIPTION = 'Macintosh II 640x480x4'
+APP_DESCRIPTION = 'Macintosh II 800x480x8'
 APP_AUTHOR	= 'TarableCode'
 ICON		= ../icon.png
 TARGET		:=	$(notdir $(CURDIR))
@@ -106,7 +106,8 @@ CFILES := \
 	MOUSEMDV.o \
 	ADBEMDEV.o \
 	ASCEMDEV.o \
-	PROGMAIN.o
+	PROGMAIN.o \
+	prof.o
 
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))

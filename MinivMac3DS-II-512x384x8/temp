@@ -31,15 +31,15 @@ include $(DEVKITARM)/3ds_rules
 #     - icon.png
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
-APP_TITLE	= 'Mini vMac 3DS'
-APP_DESCRIPTION = 'Macintosh II 640x480x4'
-APP_AUTHOR	= 'TarableCode'
-ICON		= ../icon.png
 TARGET		:=	$(notdir $(CURDIR))
+APP_TITLE	= 'Mini vMac 3DS'
+APP_DESCRIPTION = 'Macintosh II 512x384x8'
+ICON		= ../icon.png
+APP_AUTHOR	= 'TarableCode'
 BUILD		:=	build
 SOURCES		:=	../src
 DATA		:=	../data
-INCLUDES	:=	cfg ../src
+INCLUDES	:=	../cfg ../src
 #GRAPHICS	:=	gfx
 #GFXBUILD	:=	$(BUILD)
 #ROMFS		:=	romfs
