@@ -33,13 +33,13 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 APP_TITLE	= 'Mini vMac 3DS'
-APP_DESCRIPTION = 'Macintosh II 512x384x8'
-ICON		= ../icon.png
+APP_DESCRIPTION = 'Macintosh II 512x384x2'
 APP_AUTHOR	= 'TarableCode'
+ICON		= ../icon.png
 BUILD		:=	build
 SOURCES		:=	../src
 DATA		:=	../data
-INCLUDES	:=	../cfg ../src
+INCLUDES	:=	cfg ../src
 #GRAPHICS	:=	gfx
 #GFXBUILD	:=	$(BUILD)
 #ROMFS		:=	romfs

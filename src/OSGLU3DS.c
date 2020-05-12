@@ -47,13 +47,8 @@ LOCALVAR uint32_t Keys_Up = 0;
 
 /* --- 3DS Framebuffer conversion --- */
 
-#if vMacScreenWidth > 512
 #define MainTextureWidth 1024
 #define MainTextureHeight 1024
-#else
-#define MainTextureWidth 512
-#define MainTextureHeight 512
-#endif
 
 #define MainTextureSize ( MainTextureWidth * MainTextureHeight * sizeof( uint16_t ) )
 
@@ -121,36 +116,28 @@ LOCALVAR uint16_t* MainScreenBuffer = NULL;
 
 typedef void ( *ConvertScreenProc ) ( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t InputLength );
 
-#if vMacScreenWidth <= 512
-LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int EmScreenPitch, ConvertScreenProc Convert ) {
-	size_t Size = ( Bottom - Top ) * EmScreenPitch;
-
-	Convert(
-		&Src[ Top * EmScreenPitch ],
-		&MainScreenBuffer[ Top * MainTextureWidth ],
-		Size
-	);
-}
-#else
-LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int EmScreenPitch, ConvertScreenProc Convert ) {
+LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int Left, int Right, int BPP, int EmScreenPitch, ConvertScreenProc Convert ) {
 	uint16_t* Dest = MainScreenBuffer;
+	int Size = ( Right - Left ) / ( 8 / BPP );
 	int y = 0;
 
 	Src+= ( Top * EmScreenPitch );
 	Dest+= ( Top * MainTextureWidth );
 
+	Src+= ( Left / ( 8 / BPP ) );
+	Dest+= Left;
+
 	for ( y = 0; y < ( Bottom - Top ); y++ ) {
 		Convert(
 			Src,
 			Dest,
-			EmScreenPitch
+			Size
 		);
 
 		Src+= EmScreenPitch;
 		Dest+= MainTextureWidth;
 	}
 }
-#endif
 
 // Copies framebuffer data into the main sprite texture
 LOCALPROC UpdateFBTexture( size_t Size ) {
@@ -205,7 +192,7 @@ LOCALPROC Unpack_1BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Inpu
 }
 
 // Udates the main screen texture with newly converted 1bpp image data
-LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom ) {
+LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
 #if 0
     size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 8 ) );
 
@@ -215,7 +202,17 @@ LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom ) {
 		Size
 	);
 #endif
-	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenMonoByteWidth, Unpack_1BPP );
+	// Align the left
+	Left &= ~0x07;
+
+	// Align the right
+	Right+= 8;
+	Right &= ~0x07;
+
+	// Don't overflow
+	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth : Right;
+
+	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 1, vMacScreenMonoByteWidth, Unpack_1BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 
@@ -267,7 +264,7 @@ LOCALPROC Unpack2BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 }
 
 // Updates the main screen texture with a 2bpp framebuffer
-LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom ) {
+LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
 #if 0
 	size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 4 ) );
 
@@ -277,8 +274,16 @@ LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom ) {
 		Size
 	);
 #endif
+	// Align left
+	Left&= ~0x03;
 
-	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, Unpack2BPP );
+	// Align right
+	Right+= 4;
+	Right&= ~0x03;
+
+	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth - 1 : Right;
+
+	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 2, vMacScreenByteWidth, Unpack2BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -320,8 +325,15 @@ LOCALPROC Unpack4BPP( const uint8_t* PixelsIn, uint32_t* PixelsOut, size_t Input
 }
 
 // Updates the main screen texture with a 4bpp packed framebuffer
-LOCALPROC UpdateMainScreen_4BPP( const uint8_t* Src, int Top, int Bottom ) {
-	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, ( ConvertScreenProc ) Unpack4BPP );
+LOCALPROC UpdateMainScreen_4BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
+	Left &= ~0x01;
+
+	Right++;
+	Right&= ~0x01;
+
+	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth - 1 : Right;
+
+	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 4, vMacScreenByteWidth, ( ConvertScreenProc ) Unpack4BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -351,7 +363,7 @@ LOCALPROC Unpack8BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 }
 
 // Updates the main screen with converted 8bit image data
-LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom ) {
+LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
 #if 0
 	size_t Size = ( Bottom - Top ) * vMacScreenWidth;
 
@@ -361,7 +373,7 @@ LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom ) {
 		Size
 	);
 #endif
-	ConvertAndCopyMainScreen( Src, Top, Bottom, vMacScreenByteWidth, Unpack8BPP );
+	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 8, vMacScreenByteWidth, Unpack8BPP );
 	UpdateFBTexture( MainTextureSize );
 }
 #endif
@@ -1443,13 +1455,13 @@ LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
 
 #if vMacScreenDepth > 0
 	if ( UseColorMode == false ) {
-		UpdateMainScreen_1BPP( Src, top, bottom );
+		UpdateMainScreen_1BPP( Src, top, bottom, left, right );
 	} else {
 		CheckAndUpdateColormap( );
-		UpdateMainScreen( Src, top, bottom );
+		UpdateMainScreen( Src, top, bottom, left, right );
 	}
 #else
-	UpdateMainScreen( Src, top, bottom );
+	UpdateMainScreen( Src, top, bottom, left, right );
 #endif
 }
 
