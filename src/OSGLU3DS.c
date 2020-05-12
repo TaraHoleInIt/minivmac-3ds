@@ -543,6 +543,11 @@ int EntriesInDirectory = 0;
 int SelectedEntry = 0;
 int ScrollOffset = 0;
 
+LOCALVAR blnr TouchHoldMouse = falseblnr;
+LOCALVAR uint32_t TouchDownTime = 0;
+LOCALVAR uint32_t TouchDownX = 0;
+LOCALVAR uint32_t TouchDownY = 0;
+
 LOCALFUNC int DirentCompare( const void* A, const void* B ) {
     struct dirent* Dir1 = ( struct dirent* ) A;
     struct dirent* Dir2 = ( struct dirent* ) B;
@@ -921,6 +926,9 @@ LOCALVAR int MouseY = 0;
 LOCALFUNC blnr Sony_Insert2(char *s);
 
 LOCALPROC SubScreenUpdateInput( void ) {
+	float XMovePct = 0.0f;
+	float YMovePct = 0.0f;
+	uint32_t Now = 0;
     int TouchX = 0;
     int TouchY = 0;
     
@@ -1059,10 +1067,41 @@ LOCALPROC SubScreenUpdateInput( void ) {
 			}
 		}
 	} else {
+		if ( Keys_Down & KEY_TOUCH ) {
+			TouchDownTime = osGetTime( );
+			TouchHoldMouse = falseblnr;
+			TouchDownX = TouchPad.px;
+			TouchDownY = TouchPad.py;
+		}
+
+		if ( Keys_Up & KEY_TOUCH ) {
+			TouchHoldMouse = falseblnr;
+			TouchDownTime = 0;
+			TouchDownX = 0;
+			TouchDownY = 0;
+		}
+
 		// Mouse mode
 		if ( Keys_Held & KEY_TOUCH ) {
 			MouseX = TouchPad.px * ( ( ( float ) vMacScreenWidth ) / ( ( float ) SubScreenWidth ) );
 			MouseY = TouchPad.py * ( ( ( float ) vMacScreenHeight ) / ( ( float ) SubScreenHeight ) );
+
+			if ( TouchDownTime > 0 ) {
+				// time in ms
+				Now = osGetTime( );
+
+				if ( ( Now - TouchDownTime ) >= 500 ) {
+					if ( abs( TouchPad.px - TouchDownX ) <= 15 && abs( TouchPad.py - TouchDownY ) <= 15 ) {
+						TouchHoldMouse = trueblnr;
+					} else {
+						TouchHoldMouse = falseblnr;
+					}
+
+					TouchDownTime = 0;
+					TouchDownX = 0;
+					TouchDownY = 0;
+				}
+			}
 		}
 	}
 }
@@ -1549,7 +1588,7 @@ LOCALPROC CheckMouseState(void)
 	}
 
 	MousePositionNotify( MouseX, MouseY );
-	MyMouseButtonSet( ( Keys_Held & KEY_L ) || ( Keys_Held & KEY_R ) );
+	MyMouseButtonSet( ( Keys_Held & KEY_L ) || ( Keys_Held & KEY_R ) || TouchHoldMouse );
 }
 
 /* --- keyboard input --- */
