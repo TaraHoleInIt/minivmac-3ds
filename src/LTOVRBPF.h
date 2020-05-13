@@ -1,5 +1,5 @@
 /*
-	BPFILTER.h
+	LTOVRBPF.h
 
 	Copyright (C) 2012 Michael Fort, Paul C. Pratt
 
@@ -15,8 +15,11 @@
 */
 
 /*
-	Berkeley Packet Filter for localtalk emulation
+	LocalTalk OVeR Berkeley Packet Filter
 */
+
+
+#define BPF_dolog (dbglog_HAVE && 0)
 
 /* BPF and devices */
 static unsigned char device_address[6] = {
@@ -35,11 +38,6 @@ static struct bpf_insn insns[] =
 	BPF_STMT(BPF_RET + BPF_K, 0),
 };
 
-GLOBALVAR ui3p LT_TxBuffer = NULL;
-
-/* Transmit state */
-GLOBALVAR ui4r LT_TxBuffSz = 0;
-
 /*
 	Transmit buffer that is reused from tx packet to tx packet.
 	The 's' byte represents the source mac address (ours) and we don't
@@ -57,12 +55,6 @@ GLOBALVAR ui4r LT_TxBuffSz = 0;
 */
 static unsigned char tx_buffer[20 + LT_TxBfMxSz] =
 	"\xFF\xFF\xFF\xFF\xFF\xFFssssss\x80\x9BppppSS";
-
-/* Receive state */
-GLOBALVAR ui3p LT_RxBuffer = NULL;
-	/* When data pending, this is used */
-GLOBALVAR ui5r LT_RxBuffSz = 0;
-	/* When data pending, this is used */
 
 /* Macro used by only the get_sockaddrs function for readability. */
 #define ROUNDUP(a, size) \
@@ -271,12 +263,14 @@ LOCALFUNC int InitLocalTalk(void)
 	/* Perform a lot of stuff to get access to the Ethernet */
 	get_ethernet();
 
+	LT_PickStampNodeHint();
+
 	/*
 		Save the process id in the transmit buffer as it may be used
 		later to uniquely identify the sender to identify collisions
 		in dynamic llap node address assignment.
 	*/
-	*((uint32_t*)(&tx_buffer[14])) = htonl(getpid());
+	*((uint32_t*)(&tx_buffer[14])) = htonl(LT_MyStamp /* getpid() */);
 
 	LT_TxBuffer = (ui3p)&tx_buffer[20];
 
@@ -287,6 +281,13 @@ LOCALFUNC int InitLocalTalk(void)
 
 	/* Initialized properly */
 	return trueblnr;
+}
+
+LOCALPROC UnInitLocalTalk(void)
+{
+	if (NULL != MyRxBuffer) {
+		free(MyRxBuffer);
+	}
 }
 
 GLOBALOSGLUPROC LT_TransmitPacket(void)
@@ -318,7 +319,7 @@ LOCALPROC LocalTalkTick0(void)
 	if (bytes > 0) {
 		/* Maybe multiple packets in this buffer */
 #if 0
-		dbglog_WriteNote("SCC founds packets from BPF");
+		dbglog_writeln("SCC founds packets from BPF");
 #endif
 		NextPacket = device_buffer;
 		EndPackets = device_buffer + bytes;
@@ -335,7 +336,7 @@ label_retry:
 		}
 	} else if (NextPacket >= EndPackets) {
 #if 0
-		dbglog_WriteNote("SCC finished set of packets from BPF");
+		dbglog_writeln("SCC finished set of packets from BPF");
 #endif
 		NextPacket = NULL;
 		goto label_retry;
@@ -350,12 +351,25 @@ label_retry:
 
 		/* Get clean references to data */
 		int ethernet_length = header->bh_caplen - 14;
-		int llap_length = htons(*((uint16_t*)(packet
-			+ header->bh_hdrlen + 18)));
-		unsigned char* start = packet + header->bh_hdrlen + 20;
+		unsigned char *buff = packet + header->bh_hdrlen;
+		int llap_length = ntohs(*((uint16_t*)(buff + 18)));
+		unsigned char* start = buff + 20;
 
 		if (llap_length <= ethernet_length) {
 			/* Start the receiver */
+			CertainlyNotMyPacket = (LT_MyStamp !=
+				ntohl(*((uint32_t*)(buff + 14))));
+
+#if BPF_dolog
+			dbglog_writeCStr("LT_MyStamp: ");
+			dbglog_writeNum(LT_MyStamp);
+			dbglog_writeCStr(", received stamp: ");
+			dbglog_writeNum(ntohl(*((uint32_t*)(buff + 14))));
+			dbglog_writeCStr(", CertainlyNotMyPacket: ");
+			dbglog_writeNum(CertainlyNotMyPacket);
+			dbglog_writeReturn();
+#endif
+
 			LT_RxBuffer    = (ui3p)start;
 			LT_RxBuffSz    = llap_length;
 		} else {
@@ -363,3 +377,7 @@ label_retry:
 		}
 	}
 }
+
+#if ! LT_MayHaveEcho
+#error "LT over BPF does not implement preventing echo"
+#endif

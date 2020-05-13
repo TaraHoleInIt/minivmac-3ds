@@ -18,43 +18,22 @@
 */
 
 
-typedef unsigned long ui5b;
-typedef unsigned short ui4b;
-typedef unsigned char ui3b;
+typedef unsigned long ui5r;
+typedef unsigned short ui4r;
+typedef unsigned char ui3r;
 
-typedef signed long si5b;
-typedef signed short si4b;
-typedef signed char si3b;
-
-typedef ui5b ui5r;
-typedef ui4b ui4r;
-typedef ui3b ui3r;
-
-typedef si5b si5r;
-typedef si4b si4r;
-typedef si3b si3r;
-
-typedef si3b *si3p;
-typedef ui3b *ui3p;
-typedef si4b *si4p;
-typedef ui4b *ui4p;
-typedef si5b *si5p;
-typedef ui5b *ui5p;
-
-typedef ui5p *ui5h;
-typedef ui4p *ui4h;
-typedef ui3p *ui3h;
+typedef signed long si5r;
+typedef signed short si4r;
+typedef signed char si3r;
 
 /*
 	define the largest supported
 	representation types.
 */
-#define uimbl2sz 5
-typedef si5r simr;
-typedef ui5r uimr;
+typedef unsigned long uimr;
+typedef signed long simr;
 
-typedef ui3b blnb;
-typedef ui3r blnr;
+typedef unsigned char blnr;
 #define trueblnr 1
 #define falseblnr 0
 

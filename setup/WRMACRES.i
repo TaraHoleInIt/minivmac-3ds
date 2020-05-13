@@ -128,24 +128,28 @@ LOCALPROC WriteDocTypeIncludeIconFile(void)
 LOCALPROC WriteMacResConfigContents(void)
 {
 	WriteBlankLineToDestFile();
-	if (gbk_ide_mw8 == cur_ide) {
-		if (gbk_targfam_mach == gbo_targfam) {
-			WriteDestFileLn("#include <Carbon/Carbon.r>");
-		} else {
-			WriteQuotedInclude("Types.r");
-			WriteQuotedInclude("Icons.r");
-		}
-	} else
-	if ((gbk_ide_bgc == cur_ide)
-		|| (gbk_ide_xcd == cur_ide)
-		|| (gbk_ide_mvc == cur_ide))
-	{
-		WriteQuotedInclude("Carbon.r");
-	} else
-	if (gbk_ide_mpw == cur_ide) {
+
+#if cur_ide_mw8
+
+	if (gbk_targfam_mach == gbo_targfam) {
+		WriteDestFileLn("#include <Carbon/Carbon.r>");
+	} else {
 		WriteQuotedInclude("Types.r");
 		WriteQuotedInclude("Icons.r");
 	}
+
+#elif cur_ide_bgc \
+	|| cur_ide_xcd \
+	|| cur_ide_mvc
+
+	WriteQuotedInclude("Carbon.r");
+
+#else
+
+	WriteQuotedInclude("Types.r");
+	WriteQuotedInclude("Icons.r");
+
+#endif
 
 	WriteBlankLineToDestFile();
 
@@ -228,43 +232,45 @@ LOCALPROC WriteMacResConfigContents(void)
 		WriteEndResResource();
 #endif
 
-		if (gbk_ide_mw8 != cur_ide) {
-			WriteBlankLineToDestFile();
-			WriteDestFileLn("resource 'SIZE' (-1) {");
-			++DestFileIndent;
-				WriteDestFileLn("reserved,");
-				WriteDestFileLn("acceptSuspendResumeEvents,");
-				WriteDestFileLn("reserved,");
-				WriteDestFileLn("canBackground,");
-				WriteDestFileLn("multiFinderAware,");
-				WriteDestFileLn("backgroundAndForeground,");
-				WriteDestFileLn("dontGetFrontClicks,");
-				WriteDestFileLn("ignoreChildDiedEvents,");
-				WriteDestFileLn("is32BitCompatible,");
+#if ! cur_ide_mw8
 
-				/*
-					following 4 should be "reserved"
-					if api not available
-				*/
-				WriteDestFileLn("isHighLevelEventAware,");
-				WriteDestFileLn("localAndRemoteHLEvents,");
-				WriteDestFileLn("isStationeryAware,");
-				WriteDestFileLn("useTextEditServices,");
+		WriteBlankLineToDestFile();
+		WriteDestFileLn("resource 'SIZE' (-1) {");
+		++DestFileIndent;
+			WriteDestFileLn("reserved,");
+			WriteDestFileLn("acceptSuspendResumeEvents,");
+			WriteDestFileLn("reserved,");
+			WriteDestFileLn("canBackground,");
+			WriteDestFileLn("multiFinderAware,");
+			WriteDestFileLn("backgroundAndForeground,");
+			WriteDestFileLn("dontGetFrontClicks,");
+			WriteDestFileLn("ignoreChildDiedEvents,");
+			WriteDestFileLn("is32BitCompatible,");
 
-				WriteDestFileLn("reserved,");
-				WriteDestFileLn("reserved,");
-				WriteDestFileLn("reserved,");
+			/*
+				following 4 should be "reserved"
+				if api not available
+			*/
+			WriteDestFileLn("isHighLevelEventAware,");
+			WriteDestFileLn("localAndRemoteHLEvents,");
+			WriteDestFileLn("isStationeryAware,");
+			WriteDestFileLn("useTextEditServices,");
 
-				WriteBgnDestFileLn();
-				WriteUnsignedToOutput(TotMemSize + (2UL * 1024 * 1024));
-				WriteCStrToDestFile(",");
-				WriteEndDestFileLn();
+			WriteDestFileLn("reserved,");
+			WriteDestFileLn("reserved,");
+			WriteDestFileLn("reserved,");
 
-				WriteBgnDestFileLn();
-				WriteUnsignedToOutput(TotMemSize + (512UL * 1024));
-				WriteEndDestFileLn();
-			WriteEndResResource();
-		}
+			WriteBgnDestFileLn();
+			WriteUnsignedToOutput(TotMemSize + (2UL * 1024 * 1024));
+			WriteCStrToDestFile(",");
+			WriteEndDestFileLn();
+
+			WriteBgnDestFileLn();
+			WriteUnsignedToOutput(TotMemSize + (512UL * 1024));
+			WriteEndDestFileLn();
+		WriteEndResResource();
+
+#endif
 
 		WriteBlankLineToDestFile();
 		DoAllDocTypesWithSetup(WriteDocTypeDefIconId);

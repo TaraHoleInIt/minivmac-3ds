@@ -49,11 +49,284 @@
 #include "SCCEMDEV.h"
 
 /*
-	ReportAbnormalID unused 0x0721, 0x0722, 0x074D - 0x07FF
+	ReportAbnormalID unused 0x074D - 0x07FF
 */
 
 #define SCC_dolog (dbglog_HAVE && 0)
 #define SCC_TrackMore 0
+
+#if EmLocalTalk
+
+LOCALVAR blnr CTSpacketPending = falseblnr;
+LOCALVAR ui3r CTSpacketRxDA;
+LOCALVAR ui3r CTSpacketRxSA;
+
+LOCALVAR blnr IsFindingNode = falseblnr;
+
+/*
+	Function used when all the tx data is sent to the SCC as indicated
+	by resetting the TX underrun/EOM latch.  If the transmit packet is
+	a unicast RTS LAPD packet, we fake the corresponding CTS LAPD
+	packet.  This is okay because it is only a collision avoidance
+	mechanism and the Ethernet device itself and BPF automatically
+	handle collision detection and retransmission.  Besides this is
+	what a standard AppleTalk (LocalTalk to EtherTalk) bridge does.
+*/
+LOCALPROC LT_TransmitPacket1(void)
+{
+	/* Check for LLAP RTS/CTS packets, which we won't send */
+#if SCC_dolog
+	dbglog_WriteNote("SCC sending packet to UDP");
+	dbglog_StartLine();
+	dbglog_writelnNum("LT_TxBuffSz", LT_TxBuffSz);
+#endif
+
+	if (LT_TxBuffSz < 3) {
+		ReportAbnormalID(0x0721,
+			"packet too small in "
+				"in LT_TransmitPacket1");
+	} else {
+		ui3r type = LT_TxBuffer[2];
+
+#if SCC_dolog
+		dbglog_StartLine();
+		dbglog_writelnNum("dst", LT_TxBuffer[0]);
+		dbglog_StartLine();
+		dbglog_writelnNum("src", LT_TxBuffer[1]);
+		dbglog_StartLine();
+		dbglog_writelnNum("type", type);
+#endif
+
+		if (type < 0x80) {
+			/* data packet */
+#if LT_MayHaveEcho
+			IsFindingNode = falseblnr;
+#endif
+			LT_TransmitPacket();
+		} else {
+			/* control packet */
+
+			if (3 != LT_TxBuffSz) {
+				ReportAbnormalID(0x0722,
+					"unexpected size of control packet in "
+						"in LT_TransmitPacket1");
+			}
+
+			if (0x81 == type) {
+#if SCC_dolog
+				dbglog_WriteNote(
+					"SCC LLAP packet lapENQ");
+#endif
+#if LT_MayHaveEcho
+				IsFindingNode = trueblnr;
+#endif
+				LT_TransmitPacket();
+			} else
+			if (0x82 == type) {
+#if SCC_dolog
+				dbglog_WriteNote(
+					"SCC LLAP packet lapACK");
+#endif
+				LT_TransmitPacket();
+			} else
+			if (0x84 == type) {
+				/* lapRTS - Request to send*/
+				if (0xFF == LT_TxBuffer[0]) {
+#if SCC_dolog
+					dbglog_WriteNote(
+						"SCC LLAP packet ignore broadcast lapRTS");
+#endif
+				} else
+				if (CTSpacketPending) {
+					ReportAbnormalID(0x0701,
+						"Already CTSpacketPending "
+							"in LT_TransmitPacket1");
+				} else
+				{
+#if SCC_dolog
+					dbglog_WriteNote(
+						"SCC LLAP packet lapRTS");
+#endif
+					CTSpacketRxDA = LT_TxBuffer[1]; /* rx da = tx sa */
+					CTSpacketRxSA = LT_TxBuffer[0]; /* rx sa = tx da */
+					CTSpacketPending = trueblnr;
+				}
+			} else
+			if (0x85 == type) {
+				/* ignore lapCTS - Clear To Send */
+#if SCC_dolog
+				dbglog_WriteNote(
+					"SCC LLAP packet lapCTS");
+#endif
+			} else
+			{
+#if SCC_dolog
+				dbglog_WriteNote(
+					"SCC LLAP packet unknown");
+#endif
+
+				LT_TransmitPacket();
+			}
+		}
+	}
+}
+
+LOCALVAR ui3b MyCTSBuffer[4];
+
+LOCALPROC GetCTSpacket(void)
+{
+	/* Get a single buffer worth of packets at a time */
+	ui3p device_buffer = MyCTSBuffer;
+
+#if SCC_dolog
+	dbglog_WriteNote("SCC receiving CTS packet");
+#endif
+	/* Create the fake response from the other node */
+	device_buffer[0] = CTSpacketRxDA;
+	device_buffer[1] = CTSpacketRxSA;
+	device_buffer[2] = 0x85;          /* llap cts */
+
+	/* Start the receiver */
+	LT_RxBuffer = device_buffer;
+	LT_RxBuffSz = 3;
+
+	CTSpacketPending = falseblnr;
+}
+
+/* LLAP/SDLC address */
+LOCALVAR ui3b my_node_address = 0;
+
+LOCALVAR blnr LTAddrSrchMd = falseblnr;
+
+LOCALPROC GetNextPacketForMe(void)
+{
+	ui3r dst;
+	ui3r src;
+	ui3r type;
+
+label_retry:
+	LT_ReceivePacket();
+
+	if (nullpr != LT_RxBuffer) {
+		/* Is this packet destined for me? */
+		dst = LT_RxBuffer[0];
+		src = LT_RxBuffer[1];
+		type = LT_RxBuffer[2];
+
+#if SCC_dolog
+		dbglog_StartLine();
+		dbglog_writeln("SCC receiving packet from UDP");
+		dbglog_writelnNum("LT_RxBuffSz", LT_RxBuffSz);
+		dbglog_writelnNum("dst", dst);
+		dbglog_writelnNum("src", src);
+		dbglog_writelnNum("type", type);
+#endif
+
+		if ((dst != my_node_address)
+			&& (dst != 0xFF)
+			&& LTAddrSrchMd)
+		{
+#if SCC_dolog
+			dbglog_WriteNote("SCC ignore packet not for me");
+#endif
+			LT_RxBuffer = nullpr;
+			goto label_retry;
+		} else
+#if LT_MayHaveEcho
+		if (CertainlyNotMyPacket) {
+#if SCC_dolog
+			dbglog_WriteNote("CertainlyNotMyPacket");
+#endif
+		} else
+		if (src != my_node_address) {
+			/* we definitely did not send it, so ok */
+		} else
+		/*
+			we should ignore packets "from" myself except ACK packets,
+			which tell me that we've got an address collision,
+			and ENQ packets which tell me I might be about to
+		*/
+		if (0x81 == type) {
+			if (! IsFindingNode) {
+				/* pass it on for lapACK reply */
+#if SCC_dolog
+				dbglog_WriteNote("received lapENQ to us");
+#endif
+			} else {
+				/* probably this is ourself, ignore */
+#if SCC_dolog
+				dbglog_WriteNote("received lapENQ probably from us");
+#endif
+				LT_RxBuffer = nullpr;
+				goto label_retry;
+			}
+		} else
+		if (0x82 == type) {
+			if (! IsFindingNode) {
+#if SCC_dolog
+				dbglog_WriteNote("received lapACK probably from us");
+#endif
+				LT_RxBuffer = nullpr;
+				goto label_retry;
+			} else {
+				/* lapACK, pass it on handle collision */
+#if SCC_dolog
+				dbglog_WriteNote("received lapACK to us");
+#endif
+			}
+		} else
+		{
+#if SCC_dolog
+			dbglog_WriteNote("SCC ignore packet from myself");
+#endif
+			LT_RxBuffer = nullpr;
+			goto label_retry;
+		}
+#else
+		{
+			/*
+				checking for own packets isn't needed, because of
+				packetIsOneISent check. if someone else is masquerading
+				as our address, it probably is more accurate emulation
+				to accept the packet.
+			*/
+
+			/* ok */
+		}
+#endif
+	}
+}
+
+LOCALPROC LT_ReceivePacket1(void)
+{
+	if (CTSpacketPending)  {
+		GetCTSpacket();
+	} else {
+		GetNextPacketForMe();
+	}
+}
+
+LOCALPROC LT_AddrSrchMdSet(blnr v)
+{
+#if SCC_dolog
+	dbglog_StartLine();
+	dbglog_writelnNum("LT_AddrSrchMdSet", v);
+#endif
+	LTAddrSrchMd = v;
+}
+
+LOCALPROC LT_NodeAddressSet(ui3r v)
+{
+#if SCC_dolog
+	dbglog_StartLine();
+	dbglog_writelnNum("LT_NodeAddressSet", v);
+#endif
+	if (0 != v) {
+		my_node_address = v;
+	}
+}
+
+#endif /* EmLocalTalk */
 
 /* Just to make things a little easier */
 #define Bit0 1
@@ -486,6 +759,9 @@ LOCALPROC SCC_ResetChannel(int chan)
 #endif
 #if EmLocalTalk || SCC_TrackMore
 	SCC.a[chan].AddrSrchMd = falseblnr;
+	if (0 != chan) {
+		LT_AddrSrchMdSet(falseblnr);
+	}
 #endif
 #if SCC_TrackMore
 	SCC.a[chan].SyncChrLdInhb = falseblnr;
@@ -560,7 +836,7 @@ LOCALPROC SCC_ResetChannel(int chan)
 	SCC.PointerBits = 0;
 
 #if 0
-	if (chan != 0) {
+	if (0 != chan) {
 		ReadPrint = 0;
 	} else {
 		ReadModem = 0;
@@ -592,45 +868,6 @@ GLOBALPROC SCC_Reset(void)
 
 #if EmLocalTalk
 
-LOCALVAR blnr CTSpacketPending = falseblnr;
-LOCALVAR ui3r CTSpacketRxDA;
-LOCALVAR ui3r CTSpacketRxSA;
-
-/*
-	Function used when all the tx data is sent to the SCC as indicated
-	by resetting the TX underrun/EOM latch.  If the transmit packet is
-	a unicast RTS LAPD packet, we fake the corresponding CTS LAPD
-	packet.  This is okay because it is only a collision avoidance
-	mechanism and the Ethernet device itself and BPF automatically
-	handle collision detection and retransmission.  Besides this is
-	what a standard AppleTalk (LocalTalk to EtherTalk) bridge does.
-*/
-LOCALPROC process_transmit(void)
-{
-	/* Check for LLAP packets, which we won't send */
-	if (LT_TxBuffSz == 3) {
-		/*
-			We will automatically and immediately acknowledge
-			any non-broadcast RTS packets
-		*/
-		if ((LT_TxBuffer[0] != 0xFF) && (LT_TxBuffer[2] == 0x84)) {
-#if SCC_dolog
-			dbglog_WriteNote("SCC LLAP packet in process_transmit");
-#endif
-			if (CTSpacketPending) {
-				ReportAbnormalID(0x0701,
-					"Already CTSpacketPending in process_transmit");
-			} else {
-				CTSpacketRxDA = LT_TxBuffer[1]; /* rx da = tx sa */
-				CTSpacketRxSA = LT_TxBuffer[0]; /* rx sa = tx da */
-				CTSpacketPending = trueblnr;
-			}
-		}
-	} else {
-		LT_TransmitPacket();
-	}
-}
-
 LOCALPROC SCC_TxBuffPut(ui3r Data)
 {
 	/* Buffer the data in the transmit buffer */
@@ -638,28 +875,6 @@ LOCALPROC SCC_TxBuffPut(ui3r Data)
 		LT_TxBuffer[LT_TxBuffSz] = Data;
 		++LT_TxBuffSz;
 	}
-}
-
-LOCALVAR ui3b MyCTSBuffer[4];
-
-LOCALPROC GetCTSpacket(void)
-{
-	/* Get a single buffer worth of packets at a time */
-	ui3p device_buffer = MyCTSBuffer;
-
-#if SCC_dolog
-	dbglog_WriteNote("SCC receiving CTS packet");
-#endif
-	/* Create the fake response from the other node */
-	device_buffer[0] = CTSpacketRxDA;
-	device_buffer[1] = CTSpacketRxSA;
-	device_buffer[2] = 0x85;          /* llap cts */
-
-	/* Start the receiver */
-	LT_RxBuffer = device_buffer;
-	LT_RxBuffSz = 3;
-
-	CTSpacketPending = falseblnr;
 }
 
 /*
@@ -720,46 +935,6 @@ LOCALPROC SCC_RxBuffAdvance(void)
 	SCC.a[1].RxBuff = value;
 }
 
-/* LLAP/SDLC address */
-LOCALVAR ui3b my_node_address = 0;
-
-LOCALPROC GetNextPacketForMe(void)
-{
-	unsigned char dst;
-	unsigned char src;
-
-label_retry:
-	LT_ReceivePacket();
-
-	if (nullpr != LT_RxBuffer) {
-#if SCC_dolog
-		dbglog_WriteNote("SCC receiving packet from BPF");
-#endif
-
-		/* Is this packet destined for me? */
-		dst = LT_RxBuffer[0];
-		src = LT_RxBuffer[1];
-		if (src == my_node_address) {
-#if SCC_dolog
-			dbglog_WriteNote("SCC ignore packet from myself");
-#endif
-			LT_RxBuffer = nullpr;
-			goto label_retry;
-		} else if ((dst == my_node_address)
-			|| (dst == 0xFF)
-			|| ! SCC.a[1].AddrSrchMd)
-		{
-			/* ok */
-		} else {
-#if SCC_dolog
-			dbglog_WriteNote("SCC ignore packet not for me");
-#endif
-			LT_RxBuffer = nullpr;
-			goto label_retry;
-		}
-	}
-}
-
 /*
 	External function, called periodically, to poll for any new LTOE
 	packets. Any new packets are queued into the packet receipt queue.
@@ -774,11 +949,7 @@ GLOBALPROC LocalTalkTick(void)
 			dbglog_WriteNote("SCC recover abandoned packet");
 #endif
 		} else {
-			if (CTSpacketPending)  {
-				GetCTSpacket();
-			} else {
-				GetNextPacketForMe();
-			}
+			LT_ReceivePacket1();
 		}
 
 		if (nullpr != LT_RxBuffer) {
@@ -1006,7 +1177,7 @@ LOCALFUNC ui3r SCC_GetRR2(int chan)
 
 	ui3r value = SCC.InterruptVector;
 
-	if (chan != 0) { /* B Channel */
+	if (0 != chan) { /* B Channel */
 #if 0 /* StatusHiLo always false */
 		if (SCC.StatusHiLo) {
 			/* Status High */
@@ -1288,7 +1459,9 @@ LOCALPROC SCC_PutWR0(ui3r Data, int chan)
 				This is the indication we are done transmitting
 				data for the current packet.
 			*/
-			process_transmit();
+			if (0 != chan) {
+				LT_TransmitPacket1();
+			}
 #endif
 #if 0 /* It seems to work better without this */
 			if (SCC.a[chan].TxEnable) {
@@ -1672,6 +1845,9 @@ LOCALPROC SCC_PutWR3(ui3r Data, int chan)
 				"Addr Search Mode (SDLC)", NewAddrSrchMd);
 #endif
 			/* happens on boot with appletalk on */
+			if (0 != chan) {
+				LT_AddrSrchMdSet(NewAddrSrchMd);
+			}
 		}
 	}
 #endif
@@ -1718,7 +1894,9 @@ LOCALPROC SCC_PutWR3(ui3r Data, int chan)
 				SCC.a[chan].SyncHunt = trueblnr;
 			} else {
 				/* look for a packet */
-				LocalTalkTick();
+				if (0 != chan) {
+					LocalTalkTick();
+				}
 			}
 #endif
 		}
@@ -1914,7 +2092,9 @@ LOCALPROC SCC_PutWR5(ui3r Data, int chan)
 				/* happens on boot with appletalk on */
 				/* happens in Print to ImageWriter */
 #if EmLocalTalk
-				LT_TxBuffSz = 0;
+				if (0 != chan) {
+					LT_TxBuffSz = 0;
+				}
 #endif
 			} else {
 #if EmLocalTalk
@@ -2006,8 +2186,8 @@ LOCALPROC SCC_PutWR6(ui3r Data, int chan)
 #endif
 
 #if EmLocalTalk
-	if (0 != Data) {
-		my_node_address = Data;
+	if (0 != chan) {
+		LT_NodeAddressSet(Data);
 	}
 #endif
 }
@@ -2060,7 +2240,7 @@ LOCALPROC SCC_PutWR8(ui3r Data, int chan)
 
 		/* happens on boot with appletalk on */
 #if EmLocalTalk
-		if (chan != 0) {
+		if (0 != chan) {
 			SCC_TxBuffPut(Data);
 		}
 #else

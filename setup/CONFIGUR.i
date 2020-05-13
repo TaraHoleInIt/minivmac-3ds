@@ -5,8 +5,10 @@
 /*
 	CONFIGURation file
 
-	see CNFGDLFT.i and CNFGOPTS.i for things
-		that can go here.
+	can put options here, if it is not convenient to pass them to
+		your compiler on command line.
+		(i.e., for gcc, using -D)
+	see CNFGDLFT.i for things that can go here.
 */
 
 #define kMaintainerName "Tara Keeling"

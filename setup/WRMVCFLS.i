@@ -474,6 +474,9 @@ LOCALPROC WriteMVCMakeFile(void)
 				} else {
 					WriteCStrToDestFile(
 						" -mwindows -lwinmm -lole32 -luuid");
+					if (WantLocalTalk) {
+						WriteCStrToDestFile(" -lwsock32");
+					}
 				}
 			} else {
 				if (gbk_targfam_slrs == gbo_targfam) {

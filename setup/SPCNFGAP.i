@@ -130,7 +130,7 @@ LOCALPROC WriteAppSpecificCNFGRAPIoptions(void)
 		WriteDestFileLn("#define EnableShellLinks 0");
 		WriteDestFileLn("#define EnableDragDrop 0");
 		WriteDestFileLn("#define UseTimerThread 0");
-	} else if (gbk_targfam_lnds == gbo_targfam || gbk_targfam_lctru) {
+	} else if (gbk_targfam_lnds == gbo_targfam || gbk_targfam_lctru == gbo_targfam) {
 		WriteDestFileLn("#define EnableDragDrop 0");
 	} else {
 		WriteDestFileLn("#define EnableDragDrop 1");

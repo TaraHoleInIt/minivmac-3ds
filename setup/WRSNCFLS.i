@@ -89,13 +89,13 @@ LOCALPROC WriteSncMakeFile(void)
 			WriteDestFileLn("$(ObjFiles)");
 		--DestFileIndent;
 		if (gbk_dbg_on != gbo_dbg) {
-			if (gbk_ide_xcd == cur_ide) {
-				WriteBgnDestFileLn();
-				WriteCStrToDestFile("strip -u -r \"");
-				Write_machobinpath_ToDestFile();
-				WriteCStrToDestFile("\"");
-				WriteEndDestFileLn();
-			}
+#if cur_ide_xcd
+			WriteBgnDestFileLn();
+			WriteCStrToDestFile("strip -u -r \"");
+			Write_machobinpath_ToDestFile();
+			WriteCStrToDestFile("\"");
+			WriteEndDestFileLn();
+#endif
 		}
 	--DestFileIndent;
 

@@ -570,6 +570,32 @@ LOCALPROC WriteAppSOUNDGLUcontents(void)
 	WriteEndDestFileLn();
 }
 
+LOCALPROC WriteAppLOCALTLKcontents(void)
+{
+	char *s;
+
+	switch (gbo_lto) {
+		case gbk_lto_bpf:
+			s = "BPF";
+			break;
+		case gbk_lto_udp:
+			s = "UDP";
+			break;
+		default:
+			s = "???";
+			break;
+	}
+
+	WriteBgnDestFileLn();
+	WriteCStrToDestFile("#include ");
+	WriteQuoteToDestFile();
+	WriteCStrToDestFile("LTOVR");
+	WriteCStrToDestFile(s);
+	WriteCStrToDestFile(".h");
+	WriteQuoteToDestFile();
+	WriteEndDestFileLn();
+}
+
 LOCALPROC WriteAppEMCONFIGcontents(void)
 {
 	WriteDestFileLn("/*");
@@ -615,32 +641,43 @@ LOCALPROC WriteAppEMCONFIGcontents(void)
 	WriteCompCondBool("WantCycByPriOp", timingacc != 0);
 	WriteCompCondBool("WantCloserCyc", timingacc >= 2);
 
-	if (gbk_ide_mvc == cur_ide) {
-		if (gbk_cpufam_x64 == gbo_cpufam) {
-			WriteBlankLineToDestFile();
-			WriteDestFileLn("#define r_pc_p \"r15\"");
-			WriteDestFileLn("#define r_MaxCyclesToGo \"r14\"");
-			WriteDestFileLn("#define r_pc_pHi \"r13\"");
-		}
+	WriteBlankLineToDestFile();
+	WriteDestFileLn("#define kAutoSlowSubTicks 16384");
+	WriteBgnDestFileLn();
+	WriteCStrToDestFile("#define kAutoSlowTime ");
+	if (cur_mIIorIIX) {
+		WriteCStrToDestFile("60");
+	} else {
+		WriteCStrToDestFile("34");
+	}
+	WriteEndDestFileLn();
 
-		if (gbk_cpufam_ppc == gbo_cpufam) {
-			WriteBlankLineToDestFile();
-			WriteDestFileLn("#define r_regs \"r14\"");
-			WriteDestFileLn("#define r_pc_p \"r15\"");
-			WriteDestFileLn("#define r_MaxCyclesToGo \"r16\"");
-			WriteDestFileLn("#define r_pc_pHi \"r17\"");
-		}
+#if cur_ide_mvc
+	if (gbk_cpufam_x64 == gbo_cpufam) {
+		WriteBlankLineToDestFile();
+		WriteDestFileLn("#define r_pc_p \"r15\"");
+		WriteDestFileLn("#define r_MaxCyclesToGo \"r14\"");
+		WriteDestFileLn("#define r_pc_pHi \"r13\"");
+	}
 
-		if (gbk_cpufam_arm == gbo_cpufam) {
-			WriteBlankLineToDestFile();
-			WriteDestFileLn("#define r_regs \"r4\"");
-			WriteDestFileLn("#define r_pc_p \"r5\"");
-			if (gbk_targ_wcar != cur_targ) {
-				WriteDestFileLn("#define r_MaxCyclesToGo \"r6\"");
-				WriteDestFileLn("#define r_pc_pHi \"r7\"");
-			}
+	if (gbk_cpufam_ppc == gbo_cpufam) {
+		WriteBlankLineToDestFile();
+		WriteDestFileLn("#define r_regs \"r14\"");
+		WriteDestFileLn("#define r_pc_p \"r15\"");
+		WriteDestFileLn("#define r_MaxCyclesToGo \"r16\"");
+		WriteDestFileLn("#define r_pc_pHi \"r17\"");
+	}
+
+	if (gbk_cpufam_arm == gbo_cpufam) {
+		WriteBlankLineToDestFile();
+		WriteDestFileLn("#define r_regs \"r4\"");
+		WriteDestFileLn("#define r_pc_p \"r5\"");
+		if (gbk_targ_wcar != cur_targ) {
+			WriteDestFileLn("#define r_MaxCyclesToGo \"r6\"");
+			WriteDestFileLn("#define r_pc_pHi \"r7\"");
 		}
 	}
+#endif
 
 	WriteBlankLineToDestFile();
 
@@ -901,5 +938,11 @@ LOCALPROC WriteAppSpecificConfigFiles(void)
 		WriteADstFile1("my_config_d",
 			"SOUNDGLU", ".h", "Sound Configuration file",
 			WriteAppSOUNDGLUcontents);
+	}
+
+	if (gbo_lto != gbk_lto_none) {
+		WriteADstFile1("my_config_d",
+			"LOCALTLK", ".h", "LocalTalk Configuration file",
+			WriteAppLOCALTLKcontents);
 	}
 }

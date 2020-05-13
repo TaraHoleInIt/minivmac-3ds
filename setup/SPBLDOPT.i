@@ -540,9 +540,9 @@ LOCALFUNC blnr dfo_SoundEnabled(void)
 		|| (gbk_apifam_sd2 == gbo_apifam)
 		|| (gbk_apifam_cco == gbo_apifam)
 		|| ((gbk_apifam_xwn == gbo_apifam)
-			&& ((gbo_targfam == gbk_targfam_linx)
-				|| (gbo_targfam == gbk_targfam_fbsd)
-				|| (gbo_targfam == gbk_targfam_nbsd)));
+			&& ((gbk_targfam_linx == gbo_targfam)
+				|| (gbk_targfam_fbsd == gbo_targfam)
+				|| (gbk_targfam_nbsd == gbo_targfam)));
 
 	return v;
 }
@@ -853,6 +853,52 @@ LOCALPROC WrtOptSonySupportDC42(void)
 }
 
 
+/* option: non-disk protection */
+
+LOCALVAR blnr NonDiskProtect;
+LOCALVAR ui3r olv_NonDiskProtect;
+
+LOCALPROC ResetNonDiskProtect(void)
+{
+	NonDiskProtect = nanblnr;
+	olv_NonDiskProtect = 0;
+}
+
+LOCALFUNC tMyErr TryAsNonDiskProtectNot(void)
+{
+	return BooleanTryAsOptionNot("-ndp",
+		&NonDiskProtect, &olv_NonDiskProtect);
+}
+
+LOCALFUNC blnr dfo_NonDiskProtect(void)
+{
+	blnr v;
+
+	if (Branch < 37) {
+		v = falseblnr;
+	} else {
+		v = trueblnr;
+	}
+
+	return v;
+}
+
+LOCALFUNC tMyErr ChooseNonDiskProtect(void)
+{
+	if (nanblnr == NonDiskProtect) {
+		NonDiskProtect = dfo_NonDiskProtect();
+	}
+
+	return kMyErr_noErr;
+}
+
+LOCALPROC WrtOptNonDiskProtect(void)
+{
+	WrtOptBooleanOption("-ndp",
+		NonDiskProtect, dfo_NonDiskProtect());
+}
+
+
 /* option: Save Dialog Enable */
 
 LOCALVAR blnr gbo_SaveDialogEnable;
@@ -991,7 +1037,7 @@ enum {
 	kNumDstKeyNames
 };
 
-LOCALVAR ui3b gbo_keymap[kNumSrcKeyNames];
+LOCALVAR ui3r gbo_keymap[kNumSrcKeyNames];
 LOCALVAR ui3r olv_keymap[kNumSrcKeyNames];
 
 LOCALPROC ResetKeyMapOption(void)
@@ -1177,7 +1223,7 @@ LOCALFUNC tMyErr TryAsKeyMapOptionNot(void)
 	return err;
 }
 
-LOCALPROC dfo_keyset(ui3b *a, uimr i, ui3r v)
+LOCALPROC dfo_keyset(ui3r *a, uimr i, ui3r v)
 {
 	a[i] = v;
 
@@ -1186,7 +1232,7 @@ LOCALPROC dfo_keyset(ui3b *a, uimr i, ui3r v)
 	}
 }
 
-LOCALPROC dfo_keymap(ui3b *a)
+LOCALPROC dfo_keymap(ui3r *a)
 {
 	uimr i;
 
@@ -1230,7 +1276,7 @@ LOCALVAR ui3r ControlModeKey;
 LOCALFUNC tMyErr ChooseKeyMap(void)
 {
 	tMyErr err;
-	ui3b a[kNumSrcKeyNames];
+	ui3r a[kNumSrcKeyNames];
 
 	dfo_keymap(a);
 
@@ -1248,7 +1294,7 @@ LOCALFUNC tMyErr ChooseKeyMap(void)
 
 LOCALPROC WrtOptKeyMap(void)
 {
-	ui3b a[kNumSrcKeyNames];
+	ui3r a[kNumSrcKeyNames];
 	uimr i;
 
 	dfo_keymap(a);
@@ -1421,11 +1467,16 @@ LOCALFUNC tMyErr ChooseLocalTalk(void)
 	err = kMyErr_noErr;
 
 	if (WantLocalTalk) {
-		if ((gbk_apifam_osx != gbo_apifam)
-			&& (gbk_apifam_cco != gbo_apifam))
+		if ((gbk_apifam_cco != gbo_apifam)
+			&& (gbk_apifam_osx != gbo_apifam)
+			&& (gbk_apifam_win != gbo_apifam)
+			&& ! ((gbk_apifam_xwn == gbo_apifam)
+				&& ((gbk_targfam_linx == gbo_targfam)
+					|| (gbk_targfam_fbsd == gbo_targfam))))
 		{
 			err = ReportParseFailure(
-				"-lt is so far only implemented for OS X");
+				"-lt is so far only implemented for"
+				" OS X, Windows, and Linux");
 		}
 	}
 
@@ -1435,6 +1486,117 @@ LOCALFUNC tMyErr ChooseLocalTalk(void)
 LOCALPROC WrtOptLocalTalk(void)
 {
 	WrtOptFlagOption("-lt", WantLocalTalk);
+}
+
+
+/* option: local talk over */
+
+enum {
+	gbk_lto_none,
+	gbk_lto_bpf,
+	gbk_lto_udp,
+	kNumLTOLevels
+};
+
+LOCALVAR int gbo_lto;
+LOCALVAR ui3r olv_lto;
+
+LOCALPROC ResetLTOOption(void)
+{
+	gbo_lto = kListOptionAuto;
+	olv_lto = 0;
+}
+
+LOCALFUNC char * GetLTOName(int i)
+{
+	char *s;
+
+	switch (i) {
+		case gbk_lto_bpf:
+			s = "bpf";
+			break;
+		case gbk_lto_udp:
+			s = "udp";
+			break;
+		default:
+			s = "(unknown local talk over)";
+			break;
+	}
+	return s;
+}
+
+LOCALFUNC tMyErr TryAsLTOOptionNot(void)
+{
+	return FindNamedOption("-lto",
+		kNumLTOLevels, GetLTOName, &gbo_lto, &olv_lto);
+}
+
+LOCALFUNC int dfo_lto(void)
+{
+	int v;
+
+	if (! WantLocalTalk) {
+		v = gbk_lto_none;
+	} else if (Branch < 37) {
+		v = gbk_lto_bpf;
+	} else {
+		v = gbk_lto_udp;
+	}
+
+	return v;
+}
+
+LOCALFUNC tMyErr ChooseLTOOption(void)
+{
+	tMyErr err;
+
+	if (kListOptionAuto == gbo_lto) {
+		gbo_lto = dfo_lto();
+
+		err = kMyErr_noErr;
+	} else {
+		if (! WantLocalTalk) {
+			err = ReportParseFailure(
+				"-lto requires -lt");
+		} else
+		{
+			err = kMyErr_noErr;
+		}
+	}
+
+	if (kMyErr_noErr == err) {
+		switch (gbo_lto) {
+			case gbk_lto_bpf:
+				if ((gbk_apifam_osx != gbo_apifam)
+					&& (gbk_apifam_cco != gbo_apifam))
+				{
+					err = ReportParseFailure(
+						"-lto bpf is so far only implemented for OS X");
+				}
+				break;
+			case gbk_lto_udp:
+				if ((gbk_apifam_cco != gbo_apifam)
+					&& (gbk_apifam_osx != gbo_apifam)
+					&& (gbk_apifam_win != gbo_apifam)
+					&& ! ((gbk_apifam_xwn == gbo_apifam)
+						&& ((gbk_targfam_linx == gbo_targfam)
+							|| (gbk_targfam_fbsd == gbo_targfam))))
+				{
+					err = ReportParseFailure(
+						"-lto udp is so far only implemented for"
+						" OS X, Windows, and Linux");
+				}
+				break;
+		}
+	}
+
+	return err;
+}
+
+LOCALPROC WrtOptLTOOption(void)
+{
+	WrtOptNamedOption("-lto", GetLTOName,
+		gbo_lto, dfo_lto());
 }
 
 
@@ -1595,7 +1757,11 @@ LOCALFUNC blnr dfo_InitAutoSlow(void)
 {
 	blnr v;
 
-	v = ! cur_mIIorIIX;
+	if (Branch < 37) {
+		v = ! cur_mIIorIIX;
+	} else {
+		v = trueblnr;
+	}
 
 	return v;
 }
@@ -3668,6 +3834,7 @@ LOCALPROC SPResetCommandLineParameters(void)
 	ResetSonySupportTags();
 	ResetSonyWantChecksumsUpdated();
 	ResetSonySupportDC42();
+	ResetNonDiskProtect();
 	ResetSaveDialogEnable();
 	ResetInsertIthDisk();
 	ResetCmndOptSwap();
@@ -3676,6 +3843,7 @@ LOCALPROC SPResetCommandLineParameters(void)
 	ResetAltKeysMode();
 	ResetItnlKyBdFixOption();
 	ResetLocalTalk();
+	ResetLTOOption();
 	ResetInitSpeedOption();
 	ResetInitBackground();
 	ResetInitAutoSlow();
@@ -3738,6 +3906,7 @@ LOCALFUNC tMyErr TryAsSPOptionNot(void)
 	if (kMyErrNoMatch == (err = TryAsSonySupportTagsNot()))
 	if (kMyErrNoMatch == (err = TryAsSonyWantChecksumsUpdatedNot()))
 	if (kMyErrNoMatch == (err = TryAsSonySupportDC42Not()))
+	if (kMyErrNoMatch == (err = TryAsNonDiskProtectNot()))
 	if (kMyErrNoMatch == (err = TryAsSaveDialogEnable()))
 	if (kMyErrNoMatch == (err = TryAsInsertIthDisk()))
 	if (kMyErrNoMatch == (err = TryAsCmndOptSwapNot()))
@@ -3746,6 +3915,7 @@ LOCALFUNC tMyErr TryAsSPOptionNot(void)
 	if (kMyErrNoMatch == (err = TryAsAltKeysModeNot()))
 	if (kMyErrNoMatch == (err = TryAsItnlKyBdFixNot()))
 	if (kMyErrNoMatch == (err = TryAsLocalTalkNot()))
+	if (kMyErrNoMatch == (err = TryAsLTOOptionNot()))
 	if (kMyErrNoMatch == (err = TryAsInitSpeedOptionNot()))
 	if (kMyErrNoMatch == (err = TryAsInitBackgroundNot()))
 	if (kMyErrNoMatch == (err = TryAsInitAutoSlowNot()))
@@ -3812,6 +3982,7 @@ LOCALFUNC tMyErr AutoChooseSPSettings(void)
 	if (kMyErr_noErr == (err = ChooseSonySupportTags()))
 	if (kMyErr_noErr == (err = ChooseSonyWantChecksumsUpdated()))
 	if (kMyErr_noErr == (err = ChooseSonySupportDC42()))
+	if (kMyErr_noErr == (err = ChooseNonDiskProtect()))
 	if (kMyErr_noErr == (err = ChooseSaveDialogEnable()))
 	if (kMyErr_noErr == (err = ChooseInsertIthDisk()))
 	if (kMyErr_noErr == (err = ChooseCmndOptSwap()))
@@ -3820,6 +3991,7 @@ LOCALFUNC tMyErr AutoChooseSPSettings(void)
 	if (kMyErr_noErr == (err = ChooseAltKeysMode()))
 	if (kMyErr_noErr == (err = ChooseItnlKyBdFix()))
 	if (kMyErr_noErr == (err = ChooseLocalTalk()))
+	if (kMyErr_noErr == (err = ChooseLTOOption()))
 	if (kMyErr_noErr == (err = ChooseInitSpeed()))
 	if (kMyErr_noErr == (err = ChooseInitBackground()))
 	if (kMyErr_noErr == (err = ChooseInitAutoSlow()))
@@ -3892,6 +4064,7 @@ LOCALPROC WrtOptSPSettings(void)
 	WrtOptSonySupportTags();
 	WrtOptSonyWantChecksumsUpdated();
 	WrtOptSonySupportDC42();
+	WrtOptNonDiskProtect();
 	WrtOptSaveDialogEnable();
 	WrtOptInsertIthDisk();
 	WrtOptCmndOptSwap();
@@ -3900,6 +4073,7 @@ LOCALPROC WrtOptSPSettings(void)
 	WrtOptAltKeysMode();
 	WrtOptItnlKyBdFix();
 	WrtOptLocalTalk();
+	WrtOptLTOOption();
 	WrtOptInitSpeedOption();
 	WrtOptInitBackground();
 	WrtOptInitAutoSlow();

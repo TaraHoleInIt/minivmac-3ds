@@ -1248,8 +1248,95 @@ GLOBALOSGLUFUNC tMacErr HTCEimport(tPbuf *r)
 
 
 #if EmLocalTalk
+LOCALFUNC blnr EntropyGather(void)
+{
+	/*
+		gather some entropy from several places, just in case
+		/dev/urandom is not available.
+	*/
 
-#include "BPFILTER.h"
+	{
+		NSTimeInterval v = [NSDate timeIntervalSinceReferenceDate];
+
+		EntropyPoolAddPtr((ui3p)&v, sizeof(v) / sizeof(ui3b));
+	}
+
+	{
+		NSPoint p = [NSEvent mouseLocation];
+
+		EntropyPoolAddPtr((ui3p)&p, sizeof(p) / sizeof(ui3b));
+	}
+
+	{
+		uimr t = [[NSProcessInfo processInfo] processIdentifier];
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	{
+		ui5b dat[2];
+		int fd;
+
+		if (-1 == (fd = open("/dev/urandom", O_RDONLY))) {
+#if dbglog_HAVE
+			dbglog_writeCStr("open /dev/urandom fails");
+			dbglog_writeNum(errno);
+			dbglog_writeCStr(" (");
+			dbglog_writeCStr(strerror(errno));
+			dbglog_writeCStr(")");
+			dbglog_writeReturn();
+#endif
+		} else {
+
+			if (read(fd, &dat, sizeof(dat)) < 0) {
+#if dbglog_HAVE
+				dbglog_writeCStr("open /dev/urandom fails");
+				dbglog_writeNum(errno);
+				dbglog_writeCStr(" (");
+				dbglog_writeCStr(strerror(errno));
+				dbglog_writeCStr(")");
+				dbglog_writeReturn();
+#endif
+			} else {
+
+#if dbglog_HAVE
+				dbglog_writeCStr("dat: ");
+				dbglog_writeHex(dat[0]);
+				dbglog_writeCStr(" ");
+				dbglog_writeHex(dat[1]);
+				dbglog_writeReturn();
+#endif
+
+				e_p[0] ^= dat[0];
+				e_p[1] ^= dat[1];
+					/*
+						if "/dev/urandom" is working correctly,
+						this should make the previous contents of e_p
+						irrelevant. if it is completely broken, like
+						returning 0, this will not make e_p any less
+						random.
+					*/
+
+#if dbglog_HAVE
+				dbglog_writeCStr("ep: ");
+				dbglog_writeHex(e_p[0]);
+				dbglog_writeCStr(" ");
+				dbglog_writeHex(e_p[1]);
+				dbglog_writeReturn();
+#endif
+			}
+
+			close(fd);
+		}
+	}
+
+	return trueblnr;
+}
+#endif
+
+#if EmLocalTalk
+
+#include "LOCALTLK.h"
 
 #endif
 
@@ -2770,10 +2857,30 @@ LOCALPROC MyMenuSetup(void)
 LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
 	ui4r bottom, ui4r right)
 {
-	if ([MyNSview lockFocusIfCanDraw]) {
+#if 0
+	if ([MyNSview lockFocusIfCanDraw])
+	/*
+		when compiled with XCode 11.4.1,
+		running in macOS 10.15, this causes
+		drawRect to later be called for
+		entire window.
+	*/
+#endif
+	if ([MyNSview canDraw])
+	{
 		MyDrawWithOpenGL(top, left, bottom, right);
+#if 0
 		[MyNSview unlockFocus];
+#endif
 	}
+
+/*
+	would make sense to instead call:
+		[MyNSview setNeedsDisplayInRect:rectangle];
+	but that doesn't work either when
+		compiled with XCode 11.4.1. drawRect
+		seems to think entire view is dirty.
+*/
 }
 #else
 LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
@@ -3170,6 +3277,10 @@ LOCALPROC CloseMyOpenGLContext(void)
 	}
 }
 
+@interface MyClassNSview : NSObject
+- (void)setWantsBestResolutionOpenGLSurface:(BOOL)aBool;
+@end
+
 LOCALFUNC blnr GetOpnGLCntxt(void)
 {
 	blnr v = falseblnr;
@@ -3405,6 +3516,28 @@ typedef NSUInteger (*modifierFlagsProcPtr)
 	*/
 	if (GetOpnGLCntxt()) {
 		MyDrawWithOpenGL(0, 0, vMacScreenHeight, vMacScreenWidth);
+
+		/*
+			since drawRect is called very rarely, didn't
+			bother above to calculate actual coordinates
+			to pass to MyDrawWithOpenGL.
+
+			if it did matter, could get list of dirty
+			rectangles, instead of dirtyRect that is
+			supposed to be their union. as follows:
+		*/
+#if 0
+		{
+			const NSRect *rectList;
+			NSInteger count;
+			NSInteger i;
+
+			[self getRectsBeingDrawn:&rectList count:&count];
+			for (i = 0; i < count; i++) {
+				MyDrawWithOpenGL(<converted> rectList[i]);
+			}
+		}
+#endif
 	}
 }
 
@@ -3672,11 +3805,28 @@ LOCALFUNC blnr CreateMainWindow(void)
 #endif
 		goto label_exit;
 	}
+
+	/*
+		found in SDL 2.0.12:
+		"Note: as of the macOS 10.15 SDK, this defaults to YES
+		instead of NO when the NSHighResolutionCapable boolean
+		is set in Info.plist."
+	*/
+	if ([MyNSview respondsToSelector:@selector(
+		setWantsBestResolutionOpenGLSurface:)])
+	{
+		[((MyClassNSview *)MyNSview)
+			setWantsBestResolutionOpenGLSurface:NO];
+	}
+
 	[MyWindow setContentView: MyNSview];
 
 	[MyWindow makeKeyAndOrderFront: nil];
 
-	/* just in case drawRect didn't get called */
+	/*
+		just in case drawRect didn't get called
+		during makeKeyAndOrderFront
+	*/
 	if (! GetOpnGLCntxt()) {
 #if dbglog_HAVE
 		dbglog_writeln("Could not GetOpnGLCntxt");
@@ -4911,12 +5061,13 @@ LOCALFUNC blnr InitOSGLU(void)
 #if UseActvCode
 	if (ActvCodeInit())
 #endif
-#if EmLocalTalk
-	if (InitLocalTalk())
-#endif
 	if (InitLocationDat())
 	if (Screen_Init())
 	if (CreateMainWindow())
+#if EmLocalTalk
+	if (EntropyGather())
+	if (InitLocalTalk())
+#endif
 	if (WaitForRom())
 	{
 		IsOk = trueblnr;
@@ -4943,6 +5094,9 @@ LOCALPROC UnInitOSGLU(void)
 		MacMsgDisplayOff();
 	}
 
+#if EmLocalTalk
+	UnInitLocalTalk();
+#endif
 	RestoreKeyRepeat();
 #if MayFullScreen
 	UngrabMachine();

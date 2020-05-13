@@ -24,11 +24,14 @@
 #define WantCycByPriOp 0
 #define WantCloserCyc 0
 
+#define kAutoSlowSubTicks 16384
+#define kAutoSlowTime 60
+
 #define kRAMa_Size 0x00400000
 #define kRAMb_Size 0x00400000
 
 #define IncludeVidMem 1
-#define kVidMemRAM_Size 0x00020000
+#define kVidMemRAM_Size 0x00010000
 
 #define EmVidCard 1
 #define kVidROM_Size 0x000800

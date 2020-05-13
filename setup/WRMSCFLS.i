@@ -1178,10 +1178,10 @@ LOCALPROC WriteMSVCXMLSolutionFile(void)
 			--DestFileIndent;
 			WriteDestFileLn("EndGlobalSection");
 			if (ide_vers < 7100) {
-				WriteCStrToDestFile(
+				WriteDestFileLn(
 					"GlobalSection(ProjectDependencies)"
 					" = postSolution");
-				WriteCStrToDestFile("EndGlobalSection");
+				WriteDestFileLn("EndGlobalSection");
 			}
 			WriteDestFileLn(
 				"GlobalSection(ProjectConfiguration) = postSolution");

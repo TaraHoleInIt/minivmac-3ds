@@ -159,16 +159,18 @@ LOCALPROC WriteSrcFileHeaderPath(void)
 LOCALPROC WriteSrcFileObjName(void)
 {
 	WriteCStrToDestFile(DoSrcFile_gd()->s);
-	switch (cur_ide) {
-		case gbk_ide_msv:
-		case gbk_ide_dmc:
-		case gbk_ide_plc:
-			WriteCStrToDestFile(".obj");
-			break;
-		default:
-			WriteCStrToDestFile(".o");
-			break;
-	}
+
+#if cur_ide_msv \
+	|| cur_ide_dmc \
+	|| cur_ide_plc
+
+	WriteCStrToDestFile(".obj");
+
+#else
+
+	WriteCStrToDestFile(".o");
+
+#endif
 }
 
 LOCALPROC WriteSrcFileObjPath(void)

@@ -28,5 +28,4 @@ EXPORTFUNC blnr SCC_InterruptsEnabled(void);
 
 #if EmLocalTalk
 EXPORTPROC LocalTalkTick(void);
-EXPORTFUNC int InitLocalTalk(void);
 #endif

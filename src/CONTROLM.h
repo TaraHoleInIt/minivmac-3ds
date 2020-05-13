@@ -416,9 +416,17 @@ LOCALPROC MacMsgOverride(char *briefMsg, char *longMsg)
 {
 	if (MacMsgDisplayed) {
 		MacMsgDisplayOff();
+		SpecialModeSet(SpclModeMessage);
 	}
 	MacMsg(briefMsg, longMsg, falseblnr);
 }
+
+#if dbglog_HAVE
+GLOBALOSGLUPROC MacMsgDebugAlert(char *s)
+{
+	MacMsgOverride("Debug", s);
+}
+#endif
 
 #if NeedDoMoreCommandsMsg
 LOCALPROC DoMoreCommandsMsg(void)
@@ -1373,6 +1381,15 @@ LOCALFUNC tMacErr ROM_IsValid(void)
 
 	return mnvm_noErr;
 }
+
+#if NonDiskProtect
+GLOBALOSGLUPROC WarnMsgUnsupportedDisk(void)
+{
+	MacMsgOverride("Unsupported Disk Image",
+		"I do not recognize the format of the Disk Image,"
+		" and so will not try to mount it.");
+}
+#endif
 
 LOCALFUNC blnr WaitForRom(void)
 {

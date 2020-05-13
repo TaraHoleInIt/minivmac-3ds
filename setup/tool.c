@@ -19,7 +19,6 @@
 
 #include "COREDEFS.i"
 
-#include "CNFGOPTS.i"
 #include "CONFIGUR.i"
 #include "CNFGDLFT.i"
 
@@ -78,56 +77,56 @@
 #pragma segment Body3
 #endif
 
-#if gbk_ide_mpw == cur_ide
+#if cur_ide_mpw
 #include "WRMPWFLS.i"
 #endif
 
-#if gbk_ide_mw8 == cur_ide
+#if cur_ide_mw8
 #include "WRMW8FLS.i"
 #endif
 
-#if gbk_ide_mvc == cur_ide
+#if cur_ide_mvc
 #include "WRMVCFLS.i"
 #endif
 
-#if (gbk_ide_bgc == cur_ide) \
-	|| (gbk_ide_cyg == cur_ide) \
-	|| (gbk_ide_mgw == cur_ide) \
-	|| (gbk_ide_dkp == cur_ide) \
-	|| (gbk_ide_dvc == cur_ide) \
-	|| (gbk_ide_xcd == cur_ide)
+#if cur_ide_bgc \
+	|| cur_ide_cyg \
+	|| cur_ide_mgw \
+	|| cur_ide_dkp \
+	|| cur_ide_dvc \
+	|| cur_ide_xcd
 #include "WRBGCFLS.i"
 #endif
 
-#if gbk_ide_snc == cur_ide
+#if cur_ide_snc
 #include "WRSNCFLS.i"
 #endif
 
-#if gbk_ide_msv == cur_ide
+#if cur_ide_msv
 #include "WRMSCFLS.i"
 #endif
 
-#if gbk_ide_lcc == cur_ide
+#if cur_ide_lcc
 #include "WRLCCFLS.i"
 #endif
 
-#if gbk_ide_dvc == cur_ide
+#if cur_ide_dvc
 #include "WRDVCFLS.i"
 #endif
 
-#if gbk_ide_xcd == cur_ide
+#if cur_ide_xcd
 #include "WRXCDFLS.i"
 #endif
 
-#if gbk_ide_dmc == cur_ide
+#if cur_ide_dmc
 #include "WRDMCFLS.i"
 #endif
 
-#if gbk_ide_plc == cur_ide
+#if cur_ide_plc
 #include "WRPLCFLS.i"
 #endif
 
-#if gbk_ide_ccc == cur_ide
+#if cur_ide_ccc
 #include "WRCCCFLS.i"
 #endif
 

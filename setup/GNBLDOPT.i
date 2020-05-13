@@ -1234,7 +1234,7 @@ LOCALFUNC tMyErr ChooseHaveMacBundleApp(void)
 {
 	HaveMacBundleApp = (gbk_targfam_mach == gbo_targfam)
 		|| ((gbk_targfam_carb == gbo_targfam)
-			&& (gbk_ide_mpw == cur_ide));
+			&& cur_ide_mpw);
 #if 0
 	WantUnTranslocate = (gbk_apifam_cco == gbo_apifam)
 		&& ((gbk_cpufam_x64 == gbo_cpufam)
@@ -1258,7 +1258,7 @@ LOCALFUNC tMyErr ChooseHaveMacRrscs(void)
 {
 	HaveMacRrscs = (gbk_apifam_mac == gbo_apifam)
 		|| ((gbk_targfam_carb == gbo_targfam)
-			&& ! (gbk_ide_mpw == cur_ide));
+			&& ! cur_ide_mpw);
 
 	return kMyErr_noErr;
 }

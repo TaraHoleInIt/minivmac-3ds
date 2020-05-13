@@ -75,36 +75,36 @@ LOCALPROC WriteLnCStrToOutput(char *s)
 
 GLOBALPROC WriteScriptLangExtension(void)
 {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 	WriteCStrToOutput(".mpw");
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteCStrToOutput(".scpt");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteCStrToOutput(".sh");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput(".vbs");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput(".bat");
 #endif
 }
 
 GLOBALPROC WriteScriptLangHeader(void)
 {
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteLnCStrToOutput("#! /bin/bash");
 	WriteEolToOutput();
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteLnCStrToOutput("@echo off");
 	WriteEolToOutput();
 #endif
 }
 
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 #ifndef BashUsePrintf
 #define BashUsePrintf 1
 #endif
@@ -114,28 +114,28 @@ GLOBALPROC WriteSectionCommentDestFile(char * Description)
 {
 	WriteEolToOutput();
 	WriteEolToOutput();
-#if (gbo_script == gbk_script_mpw) || (gbo_script == gbk_script_bash)
+#if cur_script_mpw || cur_script_bash
 	{
 		WriteCStrToOutput("# ----- ");
 		WriteCStrToOutput(Description);
 		WriteCStrToOutput(" -----");
 	}
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	{
 		WriteCStrToOutput("\t--- ");
 		WriteCStrToOutput(Description);
 		WriteCStrToOutput(" -----");
 	}
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	{
 		WriteCStrToOutput("' ----- ");
 		WriteCStrToOutput(Description);
 		WriteCStrToOutput(" -----");
 	}
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	{
 		WriteCStrToOutput("rem ----- ");
 		WriteCStrToOutput(Description);
@@ -153,7 +153,7 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 
 	WriteEolToOutput();
 
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 	{
 #if MPWOneEchoPerFile
 		WriteCStrToOutput("Echo -n > \"{");
@@ -176,7 +176,7 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 #endif
 	}
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	{
 		WriteCStrToOutput("\tset DestFile to open for access file (");
 		WriteCStrToOutput(DirVar);
@@ -189,7 +189,7 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 		WriteLnCStrToOutput("\tset eof DestFile to 0");
 	}
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	{
 		WriteCStrToOutput("DestFile=\"${");
 		WriteCStrToOutput(DirVar);
@@ -207,7 +207,7 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 		WriteEolToOutput();
 	}
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	{
 		WriteCStrToOutput("set DestFile=%");
 		WriteCStrToOutput(DirVar);
@@ -220,7 +220,7 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 		WriteLnCStrToOutput("del \"%DestFile%\"");
 	}
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	{
 		WriteCStrToOutput("Set f = fso.CreateTextFile(");
 		WriteCStrToOutput(DirVar);
@@ -236,22 +236,22 @@ LOCALPROC WriteOpenDestFile(char *DirVar, char *FileName, char *FileExt,
 
 LOCALPROC WriteCloseDestFile(void)
 {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 #if MPWOneEchoPerFile
 	WriteLnCStrToOutput("''");
 #endif
-#endif /* (gbo_script == gbk_script_mpw) */
-#if (gbo_script == gbk_script_applescript)
+#endif /* cur_script_mpw */
+#if cur_script_applescript
 	WriteEolToOutput();
 	WriteLnCStrToOutput("\tclose access DestFile");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteEolToOutput();
 	WriteLnCStrToOutput("f.Close");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 #endif
 }
 
@@ -267,27 +267,27 @@ LOCALPROC WriteADstFile1(char *DirVar,
 
 LOCALPROC WriteBlankLineToDestFile(void)
 {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 #if MPWOneEchoPerFile
 	WriteLnCStrToOutput("''\266n\266");
 #else
 	WriteLnCStrToOutput("Echo '' >> \"{DestFile}\"");
 #endif
-#endif /* (gbo_script == gbk_script_mpw) */
-#if (gbo_script == gbk_script_applescript)
+#endif /* cur_script_mpw */
+#if cur_script_applescript
 	WriteLnCStrToOutput("\twrite \"\" & return to DestFile");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 #if BashUsePrintf
 	WriteLnCStrToOutput("printf \"\\n\" >> \"${DestFile}\"");
 #else
 	WriteLnCStrToOutput("echo '' >> \"${DestFile}\"");
 #endif
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteLnCStrToOutput("f.WriteLine(\"\")");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteLnCStrToOutput("echo.>>\"%DestFile%\"");
 #endif
 }
@@ -298,27 +298,27 @@ LOCALPROC WriteBgnDestFileLn(void)
 {
 	int i;
 
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 #if MPWOneEchoPerFile
 	WriteCStrToOutput("'");
 #else
 	WriteCStrToOutput("Echo '");
 #endif
-#endif /* (gbo_script == gbk_script_mpw) */
-#if (gbo_script == gbk_script_applescript)
+#endif /* cur_script_mpw */
+#if cur_script_applescript
 	WriteCStrToOutput("\twrite \"");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 #if BashUsePrintf
 	WriteCStrToOutput("printf \"%s\\n\" '");
 #else
 	WriteCStrToOutput("echo '");
 #endif
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("f.WriteLine(\"");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput("echo ");
 #endif
 
@@ -329,23 +329,23 @@ LOCALPROC WriteBgnDestFileLn(void)
 
 LOCALPROC WriteEndDestFileLn(void)
 {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 #if MPWOneEchoPerFile
 	WriteCStrToOutput("'\266n\266");
 #else
 	WriteCStrToOutput("' >> \"{DestFile}\"");
 #endif
-#endif /* (gbo_script == gbk_script_mpw) */
-#if (gbo_script == gbk_script_applescript)
+#endif /* cur_script_mpw */
+#if cur_script_applescript
 	WriteCStrToOutput("\" & return to DestFile");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteCStrToOutput("' >> \"${DestFile}\"");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("\")");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput(">>\"%DestFile%\"");
 #endif
 
@@ -355,27 +355,27 @@ LOCALPROC WriteEndDestFileLn(void)
 LOCALPROC WriteCharToDestFile(char c)
 {
 	switch (c) {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 		case '\'':
 			WriteCStrToOutput("'\266''");
 			break;
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 		case '\'':
 			WriteCStrToOutput("'\\''");
 			break;
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 		case '"':
 			WriteCStrToOutput("\\\"");
 			break;
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 		case '"':
 			WriteCStrToOutput("\"\"");
 			break;
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 		case '%':
 			WriteCStrToOutput("%%");
 			break;
@@ -420,25 +420,25 @@ LOCALPROC WriteCStrToDestFile(char *s)
 
 LOCALPROC WriteScriptVarToDestFile(char *name)
 {
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 	WriteCStrToOutput("'\"{");
 	WriteCStrToOutput(name);
 	WriteCStrToOutput("}\"'");
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteCStrToOutput("* not implemented yet *");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteCStrToOutput("'\"${");
 	WriteCStrToOutput(name);
 	WriteCStrToOutput("}\"'");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("\" & ");
 	WriteCStrToOutput(name);
 	WriteCStrToOutput(" & \"");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput("%");
 	WriteCStrToOutput(name);
 	WriteCStrToOutput("%");
@@ -447,41 +447,41 @@ LOCALPROC WriteScriptVarToDestFile(char *name)
 
 LOCALPROC WriteBgnCommentBlock(void)
 {
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteLnCStrToOutput("(*");
 #endif
 }
 
 LOCALPROC WriteEndCommentBlock(void)
 {
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteLnCStrToOutput("*)");
 #endif
 }
 
 LOCALPROC WriteBgnCommentBlockLn(void)
 {
-#if (gbo_script == gbk_script_mpw) || (gbo_script == gbk_script_bash)
+#if cur_script_mpw || cur_script_bash
 	WriteCStrToOutput("# ");
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteCStrToOutput("\t");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("' ");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput("rem ");
 #endif
 }
 
 LOCALPROC WriteEndCommentBlockLn(void)
 {
-#if (gbo_script == gbk_script_mpw) \
-	|| (gbo_script == gbk_script_applescript) \
-	|| (gbo_script == gbk_script_bash) \
-	|| (gbo_script == gbk_script_vbscript) \
-	|| (gbo_script == gbk_script_xp)
+#if cur_script_mpw \
+	|| cur_script_applescript \
+	|| cur_script_bash \
+	|| cur_script_vbscript \
+	|| cur_script_xp
 	WriteEolToOutput();
 #endif
 }
@@ -497,7 +497,7 @@ LOCALPROC FindSubDirectory(char *new_d, char *parent_d, char *name)
 {
 	WriteEolToOutput();
 
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 	WriteCStrToOutput("Set ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput(" \"{");
@@ -522,7 +522,7 @@ LOCALPROC FindSubDirectory(char *new_d, char *parent_d, char *name)
 
 	WriteLnCStrToOutput("END");
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteCStrToOutput("\tset ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput(" to ");
@@ -547,7 +547,7 @@ LOCALPROC FindSubDirectory(char *new_d, char *parent_d, char *name)
 	WriteLnCStrToOutput("\t\treturn");
 	WriteLnCStrToOutput("\tend if");
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput("=\"${");
 	WriteCStrToOutput(parent_d);
@@ -571,7 +571,7 @@ LOCALPROC FindSubDirectory(char *new_d, char *parent_d, char *name)
 	WriteLnCStrToOutput("\texit 1");
 	WriteLnCStrToOutput("fi");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("dim ");
 	WriteCStrToOutput(new_d);
 	WriteEolToOutput();
@@ -584,7 +584,7 @@ LOCALPROC FindSubDirectory(char *new_d, char *parent_d, char *name)
 	WriteCStrToOutput("\"");
 	WriteEolToOutput();
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput("set ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput("=%");
@@ -608,7 +608,7 @@ LOCALPROC MakeSubDirectory(char *new_d, char *parent_d, char *name,
 {
 	WriteEolToOutput();
 
-#if (gbo_script == gbk_script_mpw)
+#if cur_script_mpw
 	WriteCStrToOutput("Set ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput(" \"{");
@@ -631,7 +631,7 @@ LOCALPROC MakeSubDirectory(char *new_d, char *parent_d, char *name,
 
 	WriteLnCStrToOutput("END");
 #endif
-#if (gbo_script == gbk_script_applescript)
+#if cur_script_applescript
 	WriteCStrToOutput("\tset ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput(" to ");
@@ -650,7 +650,7 @@ LOCALPROC MakeSubDirectory(char *new_d, char *parent_d, char *name,
 	WriteCStrToOutput("\"}");
 	WriteEolToOutput();
 #endif
-#if (gbo_script == gbk_script_bash)
+#if cur_script_bash
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput("=\"${");
 	WriteCStrToOutput(parent_d);
@@ -672,7 +672,7 @@ LOCALPROC MakeSubDirectory(char *new_d, char *parent_d, char *name,
 
 	WriteLnCStrToOutput("fi");
 #endif
-#if (gbo_script == gbk_script_vbscript)
+#if cur_script_vbscript
 	WriteCStrToOutput("dim ");
 	WriteCStrToOutput(new_d);
 	WriteEolToOutput();
@@ -698,7 +698,7 @@ LOCALPROC MakeSubDirectory(char *new_d, char *parent_d, char *name,
 
 	WriteLnCStrToOutput("End If");
 #endif
-#if (gbo_script == gbk_script_xp)
+#if cur_script_xp
 	WriteCStrToOutput("set ");
 	WriteCStrToOutput(new_d);
 	WriteCStrToOutput("=%");

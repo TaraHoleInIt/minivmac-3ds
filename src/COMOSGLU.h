@@ -105,6 +105,27 @@ GLOBALVAR ui5r QuietTime = 0;
 GLOBALVAR ui5r QuietSubTicks = 0;
 #endif
 
+#if EmLocalTalk
+
+GLOBALVAR ui3b LT_NodeHint = 0;
+
+#if LT_MayHaveEcho
+GLOBALVAR blnr CertainlyNotMyPacket = falseblnr;
+#endif
+
+GLOBALVAR ui3p LT_TxBuffer = NULL;
+
+/* Transmit state */
+GLOBALVAR ui4r LT_TxBuffSz = 0;
+
+/* Receive state */
+GLOBALVAR ui3p LT_RxBuffer = NULL;
+	/* When data pending, this is used */
+GLOBALVAR ui5r LT_RxBuffSz = 0;
+	/* When data pending, this is used */
+
+#endif
+
 #ifndef GrabKeysFullScreen
 #define GrabKeysFullScreen 1
 #endif
@@ -1217,3 +1238,132 @@ GLOBALOSGLUPROC WarnMsgAbnormalID(ui4r id)
 	}
 }
 #endif
+
+#if EmLocalTalk
+
+/*
+	small and simple entropy pool
+
+	cryptographic rigor not claimed. or any rigor.
+
+	there is code for a serious implementation of an entropy
+	pool in the Mini vMac extra "MakeRand" (adapted from
+	MacPGP), but it seems massive overkill for the purpose
+	here - minimizing the chance that two instances of
+	Mini vMac pick the same LT_NodeHint and LT_MyStamp.
+*/
+
+LOCALVAR ui5b e_p[2] = {
+	0, 0
+	};
+
+LOCALPROC EntropyPoolStir(void)
+{
+	/*
+		mix up the bits in a way that doesn't lose information.
+		that is, each of the 2**64 possible inputs leads to a
+			different one of the 2**64 possible outputs.
+
+		to do: verify it actually does scramble things sufficiently,
+			or modify it til it does.
+	*/
+
+	ui5b t0a = e_p[0];
+	ui5b t1a = e_p[1];
+
+	ui5b t0b = t0a * 0xAE3CC725 + 0xD860D735;
+	ui5b t1b = t1a * 0x9FE72885 + 0x641AD0A9;
+		/*
+			multiplication constants from
+				"https://arxiv.org/abs/2001.05304",
+				though not being used as intended. haven't
+				really actually read the thing yet.
+			addition constants are just random odd numbers.
+		*/
+
+	ui5b t0c = (t0b << 8) + (t1b >> 24);
+	ui5b t1c = (t1b << 8) + (t0b >> 24);
+
+	e_p[0] = t0c;
+	e_p[1] = t1c;
+}
+
+LOCALPROC EntropyPoolAddByte(ui3r v)
+{
+	e_p[0] += v;
+	e_p[1] += v;
+
+	EntropyPoolStir();
+}
+
+LOCALPROC EntropyPoolAddPtr(ui3p p, uimr n)
+{
+	uimr i;
+
+	for (i = n + 1; 0 != --i; ) {
+		EntropyPoolAddByte(*p++);
+	}
+
+#if dbglog_HAVE
+	dbglog_writeCStr("ep: ");
+	dbglog_writeHex(e_p[0]);
+	dbglog_writeCStr(" ");
+	dbglog_writeHex(e_p[1]);
+	dbglog_writeReturn();
+#endif
+}
+
+
+
+LOCALVAR ui5b LT_MyStamp = 0;
+	/*
+		randomly chosen value included in sent packets.
+		if received packets have different value, then know it
+			is from somebody else. (but if it is same value, don't
+			know for sure it isn't from somebody else.)
+	*/
+
+LOCALPROC LT_PickStampNodeHint(void)
+{
+	LT_MyStamp = e_p[0];
+
+#if dbglog_HAVE && 1
+	dbglog_writelnNum("LT_MyStamp ", LT_MyStamp);
+#endif
+
+#if 0
+	LT_NodeHint = 1; /* for testing collision handling */
+#else
+	{
+		int i = 8 + 1;
+
+label_retry:
+		/* user node should be in 1-127 */
+
+		LT_NodeHint = e_p[1] & 0x7F;
+
+#if dbglog_HAVE && 1
+		dbglog_writelnNum("LT_NodeHint ", LT_NodeHint);
+#endif
+
+		if (0 != LT_NodeHint) {
+			/* ok */
+		} else
+		if (0 == --i) {
+			/* just maybe, randomness is broken */
+			/*
+				fall back to a different random number generater:
+					https://xkcd.com/221/
+			*/
+			LT_NodeHint = 4;
+		} else
+		{
+			EntropyPoolStir();
+
+			goto label_retry;
+		}
+	}
+#endif
+}
+
+#endif /* EmLocalTalk */

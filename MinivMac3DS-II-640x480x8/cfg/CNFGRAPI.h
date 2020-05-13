@@ -62,8 +62,8 @@
 #define WantInitMagnify 0
 #define EnableMagnify 1
 #define MyWindowScale 2
-#define WantInitRunInBackground 1
-#define WantInitNotAutoSlow 1
+#define WantInitRunInBackground 0
+#define WantInitNotAutoSlow 0
 #define WantInitSpeedValue 2
 #define WantEnblCtrlInt 1
 #define WantEnblCtrlRst 1
@@ -80,8 +80,8 @@
 #define NeedIntlChars 0
 #define kStrAppName "Mini vMac"
 #define kAppVariationStr "minivmac-3ds"
-#define kStrCopyrightYear "2018"
+#define kStrCopyrightYear "2020"
 #define kMaintainerName "Tara Keeling"
 #define kStrHomePage "https://github.com/TaraHoleInIt"
 
-#define kBldOpts "-br 36 -t 3dsa -m II -sound 1 -bg 1 -ta 0"
+#define kBldOpts "-br 37 -t 3dsa -m II -sound 1 -ta 0"

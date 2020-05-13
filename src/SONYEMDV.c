@@ -287,7 +287,11 @@ LOCALPROC Drive_UpdateChecksums(tDrive Drive_No)
 #endif
 
 #define checkheaderoffset 0
+#if NonDiskProtect
+#define checkheadersize (3 * 512)
+#else
 #define checkheadersize 128
+#endif
 
 #define Sony_SupportOtherFormats Sony_SupportDC42
 
@@ -309,34 +313,36 @@ LOCALFUNC tMacErr vSonyNextPendingInsert(tDrive *Drive_No)
 			ui5r TagOffset = 0;
 #endif
 
-#if Sony_SupportOtherFormats
+#if Sony_SupportOtherFormats || NonDiskProtect
 #if IncludeSonyRawMode
 			if (! vSonyRawMode)
 #endif
 			{
-				ui5r DataOffset0;
-				ui5r DataSize0;
-				ui5r TagOffset0;
-				ui5r TagSize0;
 				ui3b Temp[checkheadersize];
 				ui5r Sony_Count = checkheadersize;
 				blnr gotFormat = falseblnr;
 
-				result = vSonyTransfer(falseblnr, Temp, i,
-					checkheaderoffset, Sony_Count, nullpr);
-				if (mnvm_noErr == result) {
+#if NonDiskProtect
+				if (L < checkheadersize) {
+					WarnMsgUnsupportedDisk();
+					result = -1;
+				} else
+#endif
+				if (mnvm_noErr == (result = vSonyTransfer(falseblnr,
+					Temp, i, checkheaderoffset, Sony_Count, nullpr)))
+				{
 #if Sony_SupportDC42
 					/* Detect Disk Copy 4.2 image */
 					if (0x0100 == do_get_mem_word(
 						&Temp[kDC42offset_private]))
 					{
 						/* DC42 signature found, check sizes */
-						DataSize0 = do_get_mem_long(
+						ui5r DataSize0 = do_get_mem_long(
 							&Temp[kDC42offset_dataSize]);
-						TagSize0 = do_get_mem_long(
+						ui5r TagSize0 = do_get_mem_long(
 							&Temp[kDC42offset_tagSize]);
-						DataOffset0 = kDC42offset_userData;
-						TagOffset0 = DataOffset0 + DataSize0;
+						ui5r DataOffset0 = kDC42offset_userData;
+						ui5r TagOffset0 = DataOffset0 + DataSize0;
 						if (L >= (TagOffset0 + TagSize0))
 						if (0 == (DataSize0 & 0x01FF))
 						if ((DataSize0 >> 9) >= 4)
@@ -402,6 +408,44 @@ LOCALFUNC tMacErr vSonyNextPendingInsert(tDrive *Drive_No)
 						}
 					}
 #endif /* Sony_SupportDC42 */
+#if NonDiskProtect
+					if (! gotFormat) {
+						ui4r bbID = do_get_mem_word(
+							&Temp[0]);
+						ui4r drSigWord = do_get_mem_word(
+							&Temp[0x400]);
+
+						if ((0x4C4B == bbID) || (0 == bbID))
+						if ((0x4244 == drSigWord) /* HFS */
+							|| (0xD2D7 == drSigWord) /* MFS */
+							)
+						if ((Temp[0x0A] < 16)
+								/* length System name */
+							&& (Temp[0x1A] < 16)
+								/* length Finder name */
+							&& (Temp[0x2A] < 16)
+								/* length Macsbug name */
+							)
+						if ((0x4244 != drSigWord)
+							|| (3 == do_get_mem_word(
+								&Temp[0x40E]))) /* drVBMSt */
+						if (0 == (0x01FF & do_get_mem_long(
+							&Temp[0x414]))) /* drAlBlkSiz */
+						if (0 == (0x01FF & do_get_mem_long(
+							&Temp[0x418]))) /* clump size */
+						if ((Temp[0x424] < 28)
+								/* length Volume name */
+							)
+						{
+							gotFormat = trueblnr;
+						}
+					}
+
+					if (! gotFormat) {
+						WarnMsgUnsupportedDisk();
+						result = -1;
+					}
+#endif
 				}
 			}
 			if (mnvm_noErr == result)

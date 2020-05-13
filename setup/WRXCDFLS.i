@@ -43,8 +43,8 @@ enum {
 	APBospcBuildStyle,
 
 	APBoclsSrcRf,
-	APBoclsHdr, /* only if gbk_ide_xcd == cur_ide */
-	APBoclsInc, /* only if gbk_ide_xcd == cur_ide */
+	APBoclsHdr, /* only if cur_ide_xcd */
+	APBoclsInc, /* only if cur_ide_xcd */
 	APBoclsIcnsRf,
 	APBoclsFramRf,
 	APBospcLibStdcRf,
@@ -59,8 +59,8 @@ enum {
 	APBospcLibraries,
 	APBospcProducts,
 	APBospcMainGroup,
-	APBospcSrcHeaders, /* only if gbk_ide_xcd == cur_ide */
-	APBospcIncludes, /* only if gbk_ide_xcd == cur_ide */
+	APBospcSrcHeaders, /* only if cur_ide_xcd */
+	APBospcIncludes, /* only if cur_ide_xcd */
 
 	APBospcTarget,
 	APBospcRoot,
@@ -71,10 +71,10 @@ enum {
 
 	APBospcLangDummyRf,
 
-	APBospcNatCnfg, /* only if gbk_ide_xcd == cur_ide */
-	APBospcPrjCnfg, /* only if gbk_ide_xcd == cur_ide */
-	APBospcLstNatCnfg, /* only if gbk_ide_xcd == cur_ide */
-	APBospcLstPrjCnfg, /* only if gbk_ide_xcd == cur_ide */
+	APBospcNatCnfg, /* only if cur_ide_xcd */
+	APBospcPrjCnfg, /* only if cur_ide_xcd */
+	APBospcLstNatCnfg, /* only if cur_ide_xcd */
+	APBospcLstPrjCnfg, /* only if cur_ide_xcd */
 
 	kNumAPBocls
 };

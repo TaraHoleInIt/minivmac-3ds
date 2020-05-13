@@ -168,11 +168,22 @@ GLOBALFUNC blnr RTC_Init(void)
 
 #if RTCinitPRAM
 	RTC.PARAMRAM[0 + Group1Base] = 168; /* valid */
+
+#if EmLocalTalk
+	RTC.PARAMRAM[2 + Group1Base] = LT_NodeHint;
+		/* set to constant instead for testing collisions */
+#else
 #if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx)
 	RTC.PARAMRAM[2 + Group1Base] = 1;
 		/* node id hint for printer port (AppleTalk) */
 #endif
-	RTC.PARAMRAM[3 + Group1Base] = 34;
+#endif
+
+#if EmLocalTalk
+	RTC.PARAMRAM[3 + Group1Base] = 0x21;
+#else
+	RTC.PARAMRAM[3 + Group1Base] = 0x22;
+#endif
 		/*
 			serial ports config bits: 4-7 A, 0-3 B
 				useFree   0 Use undefined
@@ -187,7 +198,7 @@ GLOBALFUNC blnr RTC_Init(void)
 	RTC.PARAMRAM[7 + Group1Base] = 10; /* portB, low */
 	RTC.PARAMRAM[13 + Group1Base] = prb_fontLo;
 	RTC.PARAMRAM[14 + Group1Base] = prb_kbdPrintHi;
-#if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx)
+#if (CurEmMd == kEmMd_II) || (CurEmMd == kEmMd_IIx) || EmLocalTalk
 	RTC.PARAMRAM[15 + Group1Base] = 1;
 		/*
 			printer, if any, connected to modem port

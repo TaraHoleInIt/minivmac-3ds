@@ -134,7 +134,9 @@ LOCALPROC MyMayFree(char *p)
 
 #if dbglog_HAVE
 
+#ifndef dbglog_ToStdErr
 #define dbglog_ToStdErr 0
+#endif
 
 #if ! dbglog_ToStdErr
 LOCALVAR FILE *dbglog_File = NULL;
@@ -2973,6 +2975,145 @@ LOCALPROC HandleClientMessageDndDrop(XEvent *theEvent)
 }
 #endif
 
+
+#if EmLocalTalk
+
+struct xqpr {
+		int NewMousePosh;
+		int NewMousePosv;
+		int root_x_return;
+		int root_y_return;
+		Window root_return;
+		Window child_return;
+		unsigned int mask_return;
+};
+typedef struct xqpr xqpr;
+
+
+LOCALFUNC blnr EntropyGather(void)
+{
+	/*
+		gather some entropy from several places, just in case
+		/dev/urandom is not available.
+	*/
+
+	{
+		struct timeval t;
+
+		gettimeofday(&t, NULL);
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	{
+		xqpr t;
+
+		XQueryPointer(x_display, my_main_wind,
+			&t.root_return, &t.child_return,
+			&t.root_x_return, &t.root_y_return,
+			&t.NewMousePosh, &t.NewMousePosv,
+			&t.mask_return);
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+#if 0
+	/*
+		Another possible source of entropy. But if available,
+		almost certainly /dev/urandom is also available.
+	*/
+	/* #include <sys/sysinfo.h> */
+	{
+		struct sysinfo t;
+
+		if (0 != sysinfo(&t)) {
+#if dbglog_HAVE
+			dbglog_writeln("sysinfo fails");
+#endif
+		}
+
+		/*
+			continue even if error, it doesn't hurt anything
+				if t is garbage.
+		*/
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+#endif
+
+	{
+		pid_t t = getpid();
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	{
+		ui5b dat[2];
+		int fd;
+
+		if (-1 == (fd = open("/dev/urandom", O_RDONLY))) {
+#if dbglog_HAVE
+			dbglog_writeCStr("open /dev/urandom fails");
+			dbglog_writeNum(errno);
+			dbglog_writeCStr(" (");
+			dbglog_writeCStr(strerror(errno));
+			dbglog_writeCStr(")");
+			dbglog_writeReturn();
+#endif
+		} else {
+
+			if (read(fd, &dat, sizeof(dat)) < 0) {
+#if dbglog_HAVE
+				dbglog_writeCStr("open /dev/urandom fails");
+				dbglog_writeNum(errno);
+				dbglog_writeCStr(" (");
+				dbglog_writeCStr(strerror(errno));
+				dbglog_writeCStr(")");
+				dbglog_writeReturn();
+#endif
+			} else {
+
+#if dbglog_HAVE
+				dbglog_writeCStr("dat: ");
+				dbglog_writeHex(dat[0]);
+				dbglog_writeCStr(" ");
+				dbglog_writeHex(dat[1]);
+				dbglog_writeReturn();
+#endif
+
+				e_p[0] ^= dat[0];
+				e_p[1] ^= dat[1];
+					/*
+						if "/dev/urandom" is working correctly,
+						this should make the previous contents of e_p
+						irrelevant. if it is completely broken, like
+						returning 0, this will not make e_p any less
+						random.
+					*/
+
+#if dbglog_HAVE
+				dbglog_writeCStr("ep: ");
+				dbglog_writeHex(e_p[0]);
+				dbglog_writeCStr(" ");
+				dbglog_writeHex(e_p[1]);
+				dbglog_writeReturn();
+#endif
+			}
+
+			close(fd);
+		}
+	}
+
+	return trueblnr;
+}
+#endif
+
+#if EmLocalTalk
+
+#include "LOCALTLK.h"
+
+#endif
+
+
 #define UseMotionEvents 1
 
 #if UseMotionEvents
@@ -4762,6 +4903,10 @@ LOCALFUNC blnr InitOSGLU(void)
 	if (Screen_Init())
 	if (CreateMainWindow())
 	if (KC2MKCInit())
+#if EmLocalTalk
+	if (EntropyGather())
+	if (InitLocalTalk())
+#endif
 	if (WaitForRom())
 	{
 		return trueblnr;
@@ -4774,6 +4919,10 @@ LOCALPROC UnInitOSGLU(void)
 	if (MacMsgDisplayed) {
 		MacMsgDisplayOff();
 	}
+
+#if EmLocalTalk
+	UnInitLocalTalk();
+#endif
 
 	RestoreKeyRepeat();
 #if MayFullScreen

@@ -139,16 +139,16 @@ LOCALPROC WriteInfoPList(MyProc p)
 		"localhost/System/Library/DTDs/PropertyList.dtd\">");
 	WriteDestFileLn("<plist version=\"0.9\">");
 #else
-	if ((gbk_ide_xcd == cur_ide) && (ide_vers >= 3100)) {
-		WriteDestFileLn(
-			"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\""
-			" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-	} else {
-		WriteDestFileLn(
-			"<!DOCTYPE plist PUBLIC \"-//"
-			"Apple Computer//DTD PLIST 1.0//EN\""
-			" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-	}
+#if cur_ide_xcd && (ide_vers >= 3100)
+	WriteDestFileLn(
+		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\""
+		" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+#else
+	WriteDestFileLn(
+		"<!DOCTYPE plist PUBLIC \"-//"
+		"Apple Computer//DTD PLIST 1.0//EN\""
+		" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+#endif
 	WriteDestFileLn("<plist version=\"1.0\">");
 #endif
 
@@ -275,16 +275,19 @@ LOCALPROC WriteInfoPListData(void)
 
 LOCALPROC WritePListData(void)
 {
-	if (gbk_ide_mw8 == cur_ide) {
-		WriteADstFile1("my_config_d",
-			"main", ".plc", "plist source",
-			WriteMainPLCData);
-	} else
-	{
-		WriteADstFile1("my_config_d",
-			"Info", ".plist", "plist source",
-			WriteInfoPListData);
-	}
+#if cur_ide_mw8
+
+	WriteADstFile1("my_config_d",
+		"main", ".plc", "plist source",
+		WriteMainPLCData);
+
+#else
+
+	WriteADstFile1("my_config_d",
+		"Info", ".plist", "plist source",
+		WriteInfoPListData);
+
+#endif
 }
 
 LOCALPROC WriteEntitlementsData(void)

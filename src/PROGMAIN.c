@@ -431,8 +431,8 @@ LOCALFUNC blnr MoreSubTicksToDo(void)
 
 	if (ExtraTimeNotOver() && (ExtraSubTicksToDo > 0)) {
 #if EnableAutoSlow
-		if ((QuietSubTicks >= 16384)
-			&& (QuietTime >= 34)
+		if ((QuietSubTicks >= kAutoSlowSubTicks)
+			&& (QuietTime >= kAutoSlowTime)
 			&& ! WantNotAutoSlow)
 		{
 			ExtraSubTicksToDo = 0;

@@ -70,6 +70,7 @@ typedef si5b si5r;
 #define WantAbnormalReports 0
 
 #define NumDrives 6
+#define NonDiskProtect 1
 #define IncludeSonyRawMode 0
 #define IncludeSonyGetName 0
 #define IncludeSonyNew 0

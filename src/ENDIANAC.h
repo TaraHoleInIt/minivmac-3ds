@@ -37,7 +37,7 @@
 #if BigEndianUnaligned
 #define do_get_mem_word(a) ((ui4r)*((ui4b *)(a)))
 #else
-static ui4r do_get_mem_word(ui3p a)
+LOCALINLINEFUNC ui4r do_get_mem_word(ui3p a)
 {
 #if LittleEndianUnaligned
 	ui4b b = (*((ui4b *)(a)));

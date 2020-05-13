@@ -24,6 +24,9 @@
 #define WantCycByPriOp 0
 #define WantCloserCyc 0
 
+#define kAutoSlowSubTicks 16384
+#define kAutoSlowTime 60
+
 #define kRAMa_Size 0x00400000
 #define kRAMb_Size 0x00400000
 

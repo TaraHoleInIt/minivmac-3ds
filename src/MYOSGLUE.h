@@ -38,6 +38,10 @@
 EXPORTOSGLUPROC WarnMsgAbnormalID(ui4r id);
 #endif
 
+#if NonDiskProtect
+EXPORTOSGLUPROC WarnMsgUnsupportedDisk(void);
+#endif
+
 #if dbglog_HAVE
 EXPORTOSGLUPROC dbglog_writeCStr(char *s);
 EXPORTOSGLUPROC dbglog_writeReturn(void);
@@ -46,6 +50,10 @@ EXPORTOSGLUPROC dbglog_writeNum(ui5r x);
 EXPORTOSGLUPROC dbglog_writeMacChar(ui3r x);
 EXPORTOSGLUPROC dbglog_writeln(char *s);
 EXPORTOSGLUPROC dbglog_writelnNum(char *s, simr v);
+#endif
+
+#if dbglog_HAVE
+EXPORTOSGLUPROC MacMsgDebugAlert(char *s);
 #endif
 
 EXPORTOSGLUPROC ReserveAllocOneBlock(ui3p *p, uimr n, ui3r align,
@@ -258,6 +266,12 @@ EXPORTOSGLUPROC MySound_EndWrite(ui4r actL);
 #endif
 
 #if EmLocalTalk
+
+EXPORTVAR(ui3b, LT_NodeHint)
+
+#if LT_MayHaveEcho
+EXPORTVAR(blnr, CertainlyNotMyPacket)
+#endif
 
 #define LT_TxBfMxSz 1024
 EXPORTVAR(ui3p, LT_TxBuffer)

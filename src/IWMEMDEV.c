@@ -39,6 +39,8 @@
 
 #include "IWMEMDEV.h"
 
+#define IWM_dolog (dbglog_HAVE && 1)
+
 /*
 	ReportAbnormalID unused 0x0603 - 0x06FF
 */
@@ -109,21 +111,21 @@ LOCALFUNC ui3b IWM_Read_Reg(void)
 #else
 			ReportAbnormalID(0x0601, "IWM Data Read");
 #endif
-#ifdef _IWM_Debug
-			printf("IWM Data Read\n");
+#if IWM_dolog
+			dbglog_WriteNote("IWM Data Read");
 #endif
 			return IWM.DataIn;
 			break;
 		case 1 :
-#ifdef _IWM_Debug
-			printf("IWM Status Read\n");
+#if IWM_dolog
+			dbglog_WriteNote("IWM Status Read");
 #endif
 			return IWM.Status;
 			break;
 		case 2 :
 			ReportAbnormalID(0x0602, "IWM Handshake Read");
-#ifdef _IWM_Debug
-			printf("IWM Handshake Read\n");
+#if IWM_dolog
+			dbglog_WriteNote("IWM Handshake Read");
 #endif
 			return IWM.Handshake;
 			break;
@@ -141,8 +143,8 @@ LOCALFUNC ui3b IWM_Read_Reg(void)
 LOCALPROC IWM_Write_Reg(ui3b in)
 {
 	if (((IWM.Lines & kmtr) >> 4) == 0) {
-#ifdef _IWM_Debug
-		printf("IWM Mode Register Write\n");
+#if IWM_dolog
+		dbglog_WriteNote("IWM Mode Register Write");
 #endif
 		IWM.Mode = in;
 		IWM.Status = ((IWM.Status & 0xE0) + (IWM.Mode & 0x1F));
@@ -151,6 +153,10 @@ LOCALPROC IWM_Write_Reg(ui3b in)
 
 GLOBALFUNC ui5b IWM_Access(ui5b Data, blnr WriteMem, CPTR addr)
 {
+#if IWM_dolog
+	dbglog_AddrAccess("IWM", Data, WriteMem, addr);
+#endif
+
 	switch (addr) {
 		case kph0L :
 			IWM_Set_Lines(kph0, Off);

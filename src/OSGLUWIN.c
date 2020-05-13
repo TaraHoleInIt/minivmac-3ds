@@ -4097,6 +4097,79 @@ GLOBALOSGLUFUNC tMacErr HTCEimport(tPbuf *r)
 }
 #endif
 
+
+#if EmLocalTalk
+
+LOCALFUNC blnr EntropyGather(void)
+{
+	/*
+		gather some entropy from several places, just in case
+		/dev/urandom is not available.
+	*/
+
+	{
+		DWORD t = timeGetTime();
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	{
+		SYSTEMTIME t;
+
+		GetLocalTime(&t);
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	{
+		POINT t;
+
+		GetCursorPos(&t);
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+#if 0
+	/*
+		Another possible source of entropy. But if available,
+		almost certainly /dev/urandom is also available.
+	*/
+	/* #include <sys/sysinfo.h> */
+	{
+		struct sysinfo t;
+
+		if (0 != sysinfo(&t)) {
+#if dbglog_HAVE
+			dbglog_writeln("sysinfo fails");
+#endif
+		}
+
+		/*
+			continue even if error, it doesn't hurt anything
+				if t is garbage.
+		*/
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+#endif
+
+
+	{
+		DWORD t = GetCurrentProcessId();
+
+		EntropyPoolAddPtr((ui3p)&t, sizeof(t) / sizeof(ui3b));
+	}
+
+	return trueblnr;
+}
+#endif
+
+#if EmLocalTalk
+
+#include "LOCALTLK.h"
+
+#endif
+
+
 /* --- drives --- */
 
 #define NotAfileRef INVALID_HANDLE_VALUE
@@ -6139,6 +6212,10 @@ LOCALFUNC blnr InitOSGLU(void)
 	if (InitHotKeys())
 #endif
 	if (Init60thCheck())
+#if EmLocalTalk
+	if (EntropyGather())
+	if (InitLocalTalk())
+#endif
 	if (WaitForRom())
 	{
 		return trueblnr;
@@ -6156,6 +6233,10 @@ LOCALPROC UnInitOSGLU(void)
 	if (MacMsgDisplayed) {
 		MacMsgDisplayOff();
 	}
+
+#if EmLocalTalk
+	UnInitLocalTalk();
+#endif
 
 #if MayFullScreen
 	UnGrabTheMachine();

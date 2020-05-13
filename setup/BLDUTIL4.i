@@ -26,50 +26,49 @@ LOCALPROC WriteOutDummyContents(void)
 
 LOCALPROC WriteMakeOutputDirectories(void)
 {
-	if ((gbk_ide_xcd == cur_ide) && (! UseCmndLine)) {
-	} else
-	if (gbk_ide_mw8 == cur_ide) {
-	} else {
-		WriteSectionCommentDestFile("make output directory");
+#if cur_ide_xcd && (! UseCmndLine)
+#elif cur_ide_mw8
+#else
+	WriteSectionCommentDestFile("make output directory");
 
-		MakeSubDirectory("my_obj_d", "my_project_d", obj_d_name, "");
+	MakeSubDirectory("my_obj_d", "my_project_d", obj_d_name, "");
 
-		WriteADstFile1("my_obj_d",
-			"dummy", ".txt", "Dummy",
-			WriteOutDummyContents);
-	}
+	WriteADstFile1("my_obj_d",
+		"dummy", ".txt", "Dummy",
+		WriteOutDummyContents);
+#endif
 }
 
 LOCALPROC WriteIdeSpecificFiles(void)
 {
-#if gbk_ide_mpw == cur_ide
+#if cur_ide_mpw
 	WriteMPWSpecificFiles();
 #endif
 
-#if gbk_ide_mvc == cur_ide
+#if cur_ide_mvc
 	WriteMVCSpecificFiles();
 #endif
 
-#if (gbk_ide_bgc == cur_ide) \
-	|| (gbk_ide_cyg == cur_ide) \
-	|| (gbk_ide_mgw == cur_ide) \
-	|| (gbk_ide_dkp == cur_ide)
+#if cur_ide_bgc \
+	|| cur_ide_cyg \
+	|| cur_ide_mgw \
+	|| cur_ide_dkp
 	WriteBashGccSpecificFiles();
 #endif
 
-#if gbk_ide_mw8 == cur_ide
+#if cur_ide_mw8
 	WriteMetrowerksSpecificFiles();
 #endif
 
-#if gbk_ide_snc == cur_ide
+#if cur_ide_snc
 	WriteSncSpecificFiles();
 #endif
 
-#if gbk_ide_msv == cur_ide
+#if cur_ide_msv
 	WriteMsvSpecificFiles();
 #endif
 
-#if gbk_ide_lcc == cur_ide
+#if cur_ide_lcc
 	if (UseCmndLine) {
 		WriteLccW32clSpecificFiles();
 	} else {
@@ -77,7 +76,7 @@ LOCALPROC WriteIdeSpecificFiles(void)
 	}
 #endif
 
-#if gbk_ide_dvc == cur_ide
+#if cur_ide_dvc
 	if (UseCmndLine) {
 		WriteBashGccSpecificFiles();
 	} else {
@@ -85,7 +84,7 @@ LOCALPROC WriteIdeSpecificFiles(void)
 	}
 #endif
 
-#if gbk_ide_xcd == cur_ide
+#if cur_ide_xcd
 	if (UseCmndLine) {
 		WriteBashGccSpecificFiles();
 	} else {
@@ -93,11 +92,11 @@ LOCALPROC WriteIdeSpecificFiles(void)
 	}
 #endif
 
-#if gbk_ide_dmc == cur_ide
+#if cur_ide_dmc
 	WriteDMCSpecificFiles();
 #endif
 
-#if gbk_ide_plc == cur_ide
+#if cur_ide_plc
 	if (UseCmndLine) {
 		WritePLCclSpecificFiles();
 	} else {
@@ -105,7 +104,7 @@ LOCALPROC WriteIdeSpecificFiles(void)
 	}
 #endif
 
-#if gbk_ide_ccc == cur_ide
+#if cur_ide_ccc
 	WriteCccSpecificFiles();
 #endif
 }

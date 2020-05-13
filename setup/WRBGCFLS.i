@@ -23,7 +23,7 @@
 LOCALPROC WriteXCDcallgcc(void)
 {
 #if 0
-	if ((gbk_ide_xcd == cur_ide) && (ide_vers >= 2100)
+	if (cur_ide_xcd && (ide_vers >= 2100)
 		&& (ide_vers < 2200))
 	{
 		/*
@@ -48,7 +48,8 @@ LOCALPROC WriteXCDcallgcc(void)
 
 LOCALPROC WriteBgcCompileAsmLinkCommonOptions(void)
 {
-	if ((gbk_ide_xcd == cur_ide) && (ide_vers >= 2100)) {
+#if cur_ide_xcd
+	if (ide_vers >= 2100) {
 		switch (cur_targ) {
 			case gbk_targ_mach:
 			case gbk_targ_imch:
@@ -68,6 +69,7 @@ LOCALPROC WriteBgcCompileAsmLinkCommonOptions(void)
 				break;
 		}
 	}
+#endif
 	if (gbk_targfam_oind == gbo_targfam) {
 		if (gbk_cpufam_x64 == gbo_cpufam) {
 			WriteCStrToDestFile(" -m64");
@@ -81,7 +83,8 @@ LOCALPROC WriteBgcCompileAsmLinkCommonOptions(void)
 
 LOCALPROC WriteBgcLinkOSGlucompileCommonOptions(void)
 {
-	if ((gbk_ide_xcd == cur_ide) && (ide_vers >= 2200)) {
+#if cur_ide_xcd
+	if (ide_vers >= 2200) {
 		if ((gbk_apifam_osx == gbo_apifam)
 			|| (gbk_apifam_cco == gbo_apifam))
 		{
@@ -106,6 +109,7 @@ LOCALPROC WriteBgcLinkOSGlucompileCommonOptions(void)
 			}
 		}
 	}
+#endif
 }
 
 LOCALPROC WriteBgcCompileLinkCommonOptions(void)
@@ -123,26 +127,26 @@ LOCALPROC WriteBgcCOptions(void)
 	if (gbk_apifam_nds != gbo_apifam) {
 		WriteCStrToDestFile(" -Wundef -Wstrict-prototypes");
 	}
-	if (gbk_ide_cyg == cur_ide) {
-		if (gbk_targfam_cygw != gbo_targfam) {
-			WriteCStrToDestFile(" -mno-cygwin");
-		}
+#if cur_ide_cyg
+	if (gbk_targfam_cygw != gbo_targfam) {
+		WriteCStrToDestFile(" -mno-cygwin");
 	}
-	if (gbk_ide_xcd == cur_ide) {
-		WriteCStrToDestFile(" -fpascal-strings");
+#endif
+#if cur_ide_xcd
+	WriteCStrToDestFile(" -fpascal-strings");
+#endif
+#if cur_ide_xcd
+	switch (cur_targ) {
+		case gbk_targ_mach:
+		case gbk_targ_imch:
+		case gbk_targ_mc64:
+		case gbk_targ_mx11:
+		case gbk_targ_mi11:
+		case gbk_targ_mx64:
+			WriteCStrToDestFile(" -mdynamic-no-pic");
+			break;
 	}
-	if (gbk_ide_xcd == cur_ide) {
-		switch (cur_targ) {
-			case gbk_targ_mach:
-			case gbk_targ_imch:
-			case gbk_targ_mc64:
-			case gbk_targ_mx11:
-			case gbk_targ_mi11:
-			case gbk_targ_mx64:
-				WriteCStrToDestFile(" -mdynamic-no-pic");
-				break;
-		}
-	}
+#endif
 	WriteBgcCompileAsmLinkCommonOptions();
 	WriteBgcCompileLinkCommonOptions();
 
@@ -327,9 +331,9 @@ LOCALPROC WriteBashGccMakeFile(void)
 				} else {
 					WriteCStrToDestFile(
 						" -mwindows -lwinmm -lole32 -luuid");
-					if (gbk_ide_cyg == cur_ide) {
-						WriteCStrToDestFile(" -mno-cygwin");
-					}
+#if cur_ide_cyg
+					WriteCStrToDestFile(" -mno-cygwin");
+#endif
 				}
 			} else if (gbk_apifam_gtk == gbo_apifam) {
 				WriteCStrToDestFile(" `pkg-config --libs gtk+-2.0`");
@@ -397,52 +401,52 @@ LOCALPROC WriteBashGccMakeFile(void)
 			WriteEndDestFileLn();
 		--DestFileIndent;
 		if (gbk_dbg_on != gbo_dbg) {
-			switch (cur_ide) {
-				case gbk_ide_bgc:
-					if ((gbk_targfam_minx == gbo_targfam)
-						|| (gbk_targfam_linx == gbo_targfam)
-						|| (gbk_targfam_oind == gbo_targfam)
-							/*
-								for oi64, strip makes it larger!
-								but still compresses smaller.
-							*/
-						|| (gbk_targfam_fbsd == gbo_targfam)
-						|| (gbk_targfam_obsd == gbo_targfam)
-						|| (gbk_targfam_nbsd == gbo_targfam)
-						|| (gbk_targfam_dbsd == gbo_targfam)
-						)
-					{
-						WriteBgnDestFileLn();
-						WriteCStrToDestFile("strip --strip-unneeded");
-						WritePathArgInMakeCmnd(
-							Write_machobinpath_ToDestFile);
-						WriteEndDestFileLn();
-					} else if (gbk_targfam_irix == gbo_targfam) {
-						WriteBgnDestFileLn();
-						WriteCStrToDestFile("strip -s");
-						WritePathArgInMakeCmnd(
-							Write_machobinpath_ToDestFile);
-						WriteEndDestFileLn();
-					}
-					break;
-				case gbk_ide_xcd:
-					WriteBgnDestFileLn();
-					WriteCStrToDestFile("strip -u -r");
-					WritePathArgInMakeCmnd(
-						Write_machobinpath_ToDestFile);
-					WriteEndDestFileLn();
-					break;
-				case gbk_ide_dvc:
-				case gbk_ide_mgw:
-				case gbk_ide_cyg:
-					WriteBgnDestFileLn();
-					WriteCStrToDestFile("strip.exe");
-					WritePathArgInMakeCmnd(WriteAppNamePath);
-					WriteEndDestFileLn();
-					break;
-				default:
-					break;
+#if cur_ide_bgc
+
+			if ((gbk_targfam_minx == gbo_targfam)
+				|| (gbk_targfam_linx == gbo_targfam)
+				|| (gbk_targfam_oind == gbo_targfam)
+					/*
+						for oi64, strip makes it larger!
+						but still compresses smaller.
+					*/
+				|| (gbk_targfam_fbsd == gbo_targfam)
+				|| (gbk_targfam_obsd == gbo_targfam)
+				|| (gbk_targfam_nbsd == gbo_targfam)
+				|| (gbk_targfam_dbsd == gbo_targfam)
+				)
+			{
+				WriteBgnDestFileLn();
+				WriteCStrToDestFile("strip --strip-unneeded");
+				WritePathArgInMakeCmnd(
+					Write_machobinpath_ToDestFile);
+				WriteEndDestFileLn();
+			} else if (gbk_targfam_irix == gbo_targfam) {
+				WriteBgnDestFileLn();
+				WriteCStrToDestFile("strip -s");
+				WritePathArgInMakeCmnd(
+					Write_machobinpath_ToDestFile);
+				WriteEndDestFileLn();
 			}
+
+#elif cur_ide_xcd
+
+			WriteBgnDestFileLn();
+			WriteCStrToDestFile("strip -u -r");
+			WritePathArgInMakeCmnd(
+				Write_machobinpath_ToDestFile);
+			WriteEndDestFileLn();
+
+#elif cur_ide_dvc \
+	|| cur_ide_mgw \
+	|| cur_ide_cyg
+
+			WriteBgnDestFileLn();
+			WriteCStrToDestFile("strip.exe");
+			WritePathArgInMakeCmnd(WriteAppNamePath);
+			WriteEndDestFileLn();
+
+#endif
 		}
 		if (gbk_apifam_nds == gbo_apifam) {
 			WriteBgnDestFileLn();

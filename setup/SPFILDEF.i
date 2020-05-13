@@ -71,7 +71,23 @@ static void DoMYOSGLUEdepends(tDoOneDepends p)
 	p(kDepDirCSrc, "INTLCHAR.h");
 	p(kDepDirCSrc, "COMOSGLU.h");
 	if (WantLocalTalk) {
-		p(kDepDirCSrc, "BPFILTER.h");
+		{
+			char *s = nullpr;
+
+			switch (gbo_lto) {
+				case gbk_lto_bpf:
+					s = "LTOVRBPF.h";
+					break;
+				case gbk_lto_udp:
+					s = "LTOVRUDP.h";
+					break;
+			}
+
+			if (nullpr != s) {
+				p(kDepDirCSrc, s);
+			}
+		}
+		p(kDepDirCnfg, "LOCALTLK.h");
 	}
 	if (WantAltKeysMode) {
 		p(kDepDirCSrc, "ALTKEYSM.h");
@@ -158,8 +174,14 @@ static void DoAllSrcFiles(tDoOneCFile p)
 	p("STRCONST", kDepDirCnfg, kCSrcFlgmNoSource, nullpr);
 	p("INTLCHAR", kDepDirCSrc, kCSrcFlgmNoSource, nullpr);
 	p("COMOSGLU", kDepDirCSrc, kCSrcFlgmNoSource, nullpr);
-	p("BPFILTER", kDepDirCSrc,
+	p("LOCALTLK", kDepDirCnfg,
 		CSrcFlagsUseHdrIf(WantLocalTalk), nullpr);
+	p("LTOVRBPF", kDepDirCSrc,
+		CSrcFlagsUseHdrIf(WantLocalTalk && (gbk_lto_bpf == gbo_lto)),
+		nullpr);
+	p("LTOVRUDP", kDepDirCSrc,
+		CSrcFlagsUseHdrIf(WantLocalTalk && (gbk_lto_udp == gbo_lto)),
+		nullpr);
 	p("ALTKEYSM", kDepDirCSrc,
 		CSrcFlagsUseHdrIf(WantAltKeysMode), nullpr);
 	p("ACTVCODE", kDepDirCSrc,
