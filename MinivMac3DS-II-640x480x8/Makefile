@@ -42,7 +42,7 @@ DATA		:=	../data
 INCLUDES	:=	cfg ../src
 #GRAPHICS	:=	gfx
 #GFXBUILD	:=	$(BUILD)
-#ROMFS		:=	romfs
+#ROMFS		:=	../romfs
 #GFXBUILD	:=	$(ROMFS)/gfx
 
 #---------------------------------------------------------------------------------

@@ -14,13 +14,6 @@
 	license for more details.
 */
 
-/*
-	Operating System GLUe for SDL library
-
-	All operating system dependent code for the
-	SDL Library should go here.
-*/
-
 #include "CNFGRAPI.h"
 #include "SYSDEPNS.h"
 #include "ENDIANAC.h"
@@ -34,9 +27,18 @@
 #include <unistd.h>
 #include <dirent.h>
 
-GLOBALPROC DoKeyCode( int Key, blnr Down );
+#include <stdarg.h>
 
-/* Input globals */
+/* Threading globals */
+LOCALVAR Handle RenderThreadReadyEvent = 0;
+LOCALVAR Handle RenderThreadUpdateEvent = 0;
+LOCALVAR Handle RenderThreadBusyMutex = 0;
+LOCALVAR Thread RenderThreadHandle = NULL;
+
+LOCALVAR volatile bool RenderThreadRun = false;
+
+/* 3DS OS globals */
+bool IsNew3DS = false;
 
 LOCALVAR circlePosition CStick;
 LOCALVAR touchPosition TouchPad;
@@ -45,8 +47,13 @@ LOCALVAR uint32_t Keys_Down = 0;
 LOCALVAR uint32_t Keys_Held = 0;
 LOCALVAR uint32_t Keys_Up = 0;
 
-/* --- 3DS Framebuffer conversion --- */
+LOCALVAR int MouseX = 0;
+LOCALVAR int MouseY = 0;
 
+volatile const char* TestStr = "start";
+
+
+/* Graphics (main) globals */
 #define MainTextureWidth 1024
 #define MainTextureHeight 1024
 
@@ -55,8 +62,15 @@ LOCALVAR uint32_t Keys_Up = 0;
 #define MainScreenWidth 400
 #define MainScreenHeight 240
 
-#define SubScreenWidth 320
-#define SubScreenHeight 240
+enum {
+	Scale_1to1 = 0,
+	Scale_Aspect,
+	Scale_Fill,
+	NumScales
+};
+
+LOCALVAR C3D_RenderTarget* MainRenderTarget = NULL;
+LOCALVAR uint16_t* MainScreenBuffer = NULL;
 
 // Cobbled together main framebuffer sprite
 LOCALVAR C2D_Sprite ScreenSprite = {
@@ -85,6 +99,73 @@ LOCALVAR C2D_Sprite ScreenSprite = {
 	}
 };
 
+LOCALVAR uint16_t UnpackTable_1BPP[ 256 ][ 8 ];
+
+#if vMacScreenDepth == 1
+LOCALVAR uint16_t UnpackTable_2BPP[ 256 ][ 4 ];
+#elif vMacScreenDepth == 2
+LOCALVAR uint32_t UnpackTable_4BPP[ 256 ];
+#elif vMacScreenDepth == 3
+LOCALVAR uint16_t ConversionTable_8BPP[ 256 ];
+#endif
+
+int ScaleMode = Scale_1to1;
+
+float ScaleX = 1.0f;
+float ScaleY = 1.0f;
+
+
+/* Graphics (sub) globals */
+#define SubScreenWidth 320
+#define SubScreenHeight 240
+
+#include "icons_t3x.h"
+#include "keyboard_t3x.h"
+#include "chicagoflf_bin.h"
+#include "titlebar_t3x.h"
+
+#include "touchmap_bin.h"
+
+#define Static_C2D_Color32( r, g, b, a ) ( r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ) )
+
+#define BGColor Static_C2D_Color32( 205, 205, 238, 255 )
+
+#define Icon_Width 48.0f
+#define Icons_Start_X 31.0f
+#define Icons_Y 31.0f
+
+#define Icon_Menu_X Icons_Start_X
+#define Icon_Scale_X Icon_Menu_X + ( Icon_Width * 2 )
+#define Icon_Insert_X Icon_Scale_X + ( Icon_Width * 2 )
+
+#define Keyboard_Width 256.0f
+#define Keyboard_Height 128.0f
+
+#define Keyboard_Y 97.0f
+#define Keyboard_X 32.0f
+
+#define TouchmapWidth ( SubScreenWidth / 8 )
+#define TouchmapHeight ( SubScreenHeight / 8 )
+
+#define ScrollMinX 0
+#define ScrollMinY 0
+
+#define ScrollMaxX ( int ) -( ( ( float ) vMacScreenWidth * ScaleX ) - MainScreenWidth )
+#define ScrollMaxY ( int ) -( ( ( float ) vMacScreenHeight * ScaleY ) - MainScreenHeight )
+
+#define FileSelectLineCount 16
+#define FileSelectMaxCharsPerLine 16
+
+#define StartScrollingOnLine ( FileSelectMaxCharsPerLine - 2 )
+
+#define MaxEntriesInDirectory 256
+#define MaxDirectoryEntryLength 32
+
+enum {
+    TM_Scale = 0xC9,
+    TM_Insert = 0xCA
+};
+
 LOCALVAR C2D_Sprite ScreenSpriteSub = {
 	.image = ( C2D_Image ) {
 		.tex = &( C3D_Tex ) {
@@ -111,9 +192,86 @@ LOCALVAR C2D_Sprite ScreenSpriteSub = {
 	}
 };
 
-LOCALVAR C3D_RenderTarget* MainRenderTarget = NULL;
-LOCALVAR uint16_t* MainScreenBuffer = NULL;
+LOCALVAR C3D_RenderTarget* SubRenderTarget = NULL;
 
+LOCALVAR C2D_SpriteSheet IconSheet;
+LOCALVAR C2D_SpriteSheet KeyboardSheet;
+LOCALVAR C2D_SpriteSheet TitlebarSheet;
+
+LOCALVAR C2D_Sprite TitlebarSprite;
+
+LOCALVAR C2D_Sprite KB_Lowercase_Sprite;
+LOCALVAR C2D_Sprite KB_Uppercase_Sprite;
+LOCALVAR C2D_Sprite KB_Shift_Sprite;
+
+LOCALVAR C2D_Sprite ScaleSprite;
+LOCALVAR C2D_Sprite MenuSprite;
+LOCALVAR C2D_Sprite InsertSprite;
+
+LOCALVAR C2D_Font ChicagoFLF;
+
+LOCALVAR C2D_TextBuf MenubarTextBuffer;
+LOCALVAR C2D_TextBuf FileSelectTextBuffer;
+
+LOCALVAR C2D_Text MenubarText;
+
+LOCALVAR float MenubarTextX = 0.0f;
+LOCALVAR float MenubarTextY = 0.0f;
+
+LOCALVAR int TouchKeyDown = 0xFF;
+
+LOCALVAR blnr ShiftHeld = falseblnr;
+LOCALVAR blnr CommandHeld = falseblnr;
+LOCALVAR blnr OptionHeld = falseblnr;
+LOCALVAR blnr ControlHeld = falseblnr;
+LOCALVAR blnr CapsHeld = falseblnr;
+LOCALVAR blnr ScaleHeld = falseblnr;
+
+LOCALVAR blnr HideUI = falseblnr;
+
+static C2D_Text FileSelectLines[ FileSelectLineCount ];
+
+struct dirent DirectoryEntries[ MaxEntriesInDirectory ];
+int EntriesInDirectory = 0;
+
+int SelectedEntry = 0;
+int ScrollOffset = 0;
+
+LOCALVAR blnr TouchHoldMouse = falseblnr;
+LOCALVAR uint32_t TouchDownTime = 0;
+LOCALVAR uint32_t TouchDownX = 0;
+LOCALVAR uint32_t TouchDownY = 0;
+
+LOCALVAR blnr IsInFileSelect = false;
+
+LOCALVAR int ScrollX = 0;
+LOCALVAR int ScrollY = 0;
+
+/* Prototypes */
+GLOBALPROC DoKeyCode( int Key, blnr Down );
+LOCALPROC UpdateScroll( void );
+LOCALPROC UpdateScale( void );
+
+/* Forward decls */
+LOCALVAR ui5b theKeys[ ];
+
+int ShowError( const char* ErrorText, ... ) {
+    static char Buffer[ 1024 ];
+    errorConf Err;
+    va_list Argp;
+
+    va_start( Argp, ErrorText );
+        vsnprintf( Buffer, sizeof( Buffer ), ErrorText, Argp );
+    va_end( Argp );
+
+    errorInit( &Err, ERROR_TEXT_WORD_WRAP, CFG_LANGUAGE_EN );
+    errorText( &Err, Buffer );
+    errorDisp( &Err );
+
+    return 1;
+}
+
+/* --- 3DS Framebuffer conversion --- */
 typedef void ( *ConvertScreenProc ) ( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t InputLength );
 
 LOCALPROC ConvertAndCopyMainScreen( const uint8_t* Src, int Top, int Bottom, int Left, int Right, int BPP, int EmScreenPitch, ConvertScreenProc Convert ) {
@@ -155,16 +313,6 @@ LOCALPROC UpdateFBTexture( size_t Size ) {
 	);	
 }
 
-LOCALVAR uint16_t UnpackTable_1BPP[ 256 ][ 8 ];
-
-#if vMacScreenDepth == 1
-LOCALVAR uint16_t UnpackTable_2BPP[ 256 ][ 4 ];
-#elif vMacScreenDepth == 2
-LOCALVAR uint32_t UnpackTable_4BPP[ 256 ];
-#elif vMacScreenDepth == 3
-LOCALVAR uint16_t ConversionTable_8BPP[ 256 ];
-#endif
-
 // Creates a 256 entry lookup table for each combination of pixels within one byte
 LOCALPROC Init_1BPP( void ) {
 	unsigned int i = 0;
@@ -193,15 +341,6 @@ LOCALPROC Unpack_1BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Inpu
 
 // Udates the main screen texture with newly converted 1bpp image data
 LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
-#if 0
-    size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 8 ) );
-
-	Unpack_1BPP(
-		&Src[ Top * ( vMacScreenWidth / 8 ) ],
-		&MainScreenBuffer[ Top * MainTextureWidth ],
-		Size
-	);
-#endif
 	// Align the left
 	Left &= ~0x07;
 
@@ -213,11 +352,10 @@ LOCALPROC UpdateMainScreen_1BPP( const uint8_t* Src, int Top, int Bottom, int Le
 	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth : Right;
 
 	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 1, vMacScreenMonoByteWidth, Unpack_1BPP );
-	UpdateFBTexture( MainTextureSize );
+	//UpdateFBTexture( MainTextureSize );
 }
 
 #if vMacScreenDepth == 1
-
 // Generates a lookup table which gives 4 RGB565 pixels
 // for every 4 2bit pixels given per byte
 LOCALPROC Init_2BPP( void ) {
@@ -265,15 +403,6 @@ LOCALPROC Unpack2BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 
 // Updates the main screen texture with a 2bpp framebuffer
 LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
-#if 0
-	size_t Size = ( ( Bottom - Top ) * ( vMacScreenWidth / 4 ) );
-
-	Unpack2BPP(
-		&Src[ Top * ( vMacScreenWidth / 4 ) ],
-		&MainScreenBuffer[ Top * MainTextureWidth ],
-		Size
-	);
-#endif
 	// Align left
 	Left&= ~0x03;
 
@@ -284,7 +413,7 @@ LOCALPROC UpdateMainScreen_2BPP( const uint8_t* Src, int Top, int Bottom, int Le
 	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth - 1 : Right;
 
 	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 2, vMacScreenByteWidth, Unpack2BPP );
-	UpdateFBTexture( MainTextureSize );
+	//UpdateFBTexture( MainTextureSize );
 }
 #endif
 
@@ -334,7 +463,7 @@ LOCALPROC UpdateMainScreen_4BPP( const uint8_t* Src, int Top, int Bottom, int Le
 	Right = ( Right > vMacScreenWidth ) ? vMacScreenWidth - 1 : Right;
 
 	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 4, vMacScreenByteWidth, ( ConvertScreenProc ) Unpack4BPP );
-	UpdateFBTexture( MainTextureSize );
+	//UpdateFBTexture( MainTextureSize );
 }
 #endif
 
@@ -364,24 +493,14 @@ LOCALPROC Unpack8BPP( const uint8_t* PixelsIn, uint16_t* PixelsOut, size_t Input
 
 // Updates the main screen with converted 8bit image data
 LOCALPROC UpdateMainScreen_8BPP( const uint8_t* Src, int Top, int Bottom, int Left, int Right ) {
-#if 0
-	size_t Size = ( Bottom - Top ) * vMacScreenWidth;
-
-	Unpack8BPP(
-		&Src[ Top * vMacScreenWidth ],
-		&MainScreenBuffer[ Top * MainTextureWidth ],
-		Size
-	);
-#endif
 	ConvertAndCopyMainScreen( Src, Top, Bottom, Left, Right, 8, vMacScreenByteWidth, Unpack8BPP );
-	UpdateFBTexture( MainTextureSize );
+	//UpdateFBTexture( MainTextureSize );
 }
 #endif
 
 /* --- End of framebuffer conversion */
 
 /* --- Main screen creation, destruction, and drawing --- */
-LOCALPROC UpdateScroll( void );
 
 LOCALFUNC bool CreateMainScreen( void ) {
 	bool Result = false;
@@ -424,20 +543,6 @@ LOCALPROC DestroyMainScreen( void ) {
 	C3D_TexDelete( ScreenSprite.image.tex );
 }
 
-enum {
-	Scale_1to1 = 0,
-	Scale_Aspect,
-	Scale_Fill,
-	NumScales
-};
-
-int ScaleMode = Scale_1to1;
-
-float ScaleX = 1.0f;
-float ScaleY = 1.0f;
-
-LOCALPROC UpdateScale( void );
-
 LOCALPROC DrawMainScreen( void ) {
 	UpdateScroll( );
 	UpdateScale( );
@@ -450,104 +555,6 @@ LOCALPROC DrawMainScreen( void ) {
 /* --- End of main screen creation, drawing, and destruction --- */
 
 /* --- Start of sub screen UI --- */
-
-#include "icons_t3x.h"
-#include "keyboard_t3x.h"
-#include "chicagoflf_bin.h"
-#include "titlebar_t3x.h"
-
-#include "touchmap_bin.h"
-
-#define Static_C2D_Color32( r, g, b, a ) ( r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ) )
-
-#define BGColor Static_C2D_Color32( 205, 205, 238, 255 )
-
-#define Icon_Width 48.0f
-#define Icons_Start_X 31.0f
-#define Icons_Y 31.0f
-
-#define Icon_Menu_X Icons_Start_X
-#define Icon_Scale_X Icon_Menu_X + ( Icon_Width * 2 )
-#define Icon_Insert_X Icon_Scale_X + ( Icon_Width * 2 )
-
-#define Keyboard_Width 256.0f
-#define Keyboard_Height 128.0f
-
-#define Keyboard_Y 97.0f
-#define Keyboard_X 32.0f
-
-#define TouchmapWidth ( SubScreenWidth / 8 )
-#define TouchmapHeight ( SubScreenHeight / 8 )
-
-enum {
-    TM_Scale = 0xC9,
-    TM_Insert = 0xCA
-};
-
-LOCALVAR C3D_RenderTarget* SubRenderTarget = NULL;
-
-LOCALVAR C2D_SpriteSheet IconSheet;
-LOCALVAR C2D_SpriteSheet KeyboardSheet;
-LOCALVAR C2D_SpriteSheet TitlebarSheet;
-
-LOCALVAR C2D_Sprite TitlebarSprite;
-
-LOCALVAR C2D_Sprite KB_Lowercase_Sprite;
-LOCALVAR C2D_Sprite KB_Uppercase_Sprite;
-LOCALVAR C2D_Sprite KB_Shift_Sprite;
-
-LOCALVAR C2D_Sprite ScaleSprite;
-LOCALVAR C2D_Sprite MenuSprite;
-LOCALVAR C2D_Sprite InsertSprite;
-
-LOCALVAR C2D_Font ChicagoFLF;
-
-LOCALVAR C2D_TextBuf MenubarTextBuffer;
-LOCALVAR C2D_TextBuf FileSelectTextBuffer;
-
-LOCALVAR C2D_Text MenubarText;
-
-LOCALVAR float MenubarTextX = 0.0f;
-LOCALVAR float MenubarTextY = 0.0f;
-
-LOCALVAR int TouchKeyDown = 0xFF;
-
-LOCALVAR blnr ShiftHeld = falseblnr;
-LOCALVAR blnr CommandHeld = falseblnr;
-LOCALVAR blnr OptionHeld = falseblnr;
-LOCALVAR blnr ControlHeld = falseblnr;
-LOCALVAR blnr CapsHeld = falseblnr;
-LOCALVAR blnr ScaleHeld = falseblnr;
-
-LOCALVAR blnr HideUI = falseblnr;
-
-#define ScrollMinX 0
-#define ScrollMinY 0
-
-#define ScrollMaxX ( int ) -( ( ( float ) vMacScreenWidth * ScaleX ) - MainScreenWidth )
-#define ScrollMaxY ( int ) -( ( ( float ) vMacScreenHeight * ScaleY ) - MainScreenHeight )
-
-#define FileSelectLineCount 16
-#define FileSelectMaxCharsPerLine 16
-
-#define StartScrollingOnLine ( FileSelectMaxCharsPerLine - 2 )
-
-static C2D_Text FileSelectLines[ FileSelectLineCount ];
-
-#define MaxEntriesInDirectory 256
-#define MaxDirectoryEntryLength 32
-
-struct dirent DirectoryEntries[ MaxEntriesInDirectory ];
-int EntriesInDirectory = 0;
-
-int SelectedEntry = 0;
-int ScrollOffset = 0;
-
-LOCALVAR blnr TouchHoldMouse = falseblnr;
-LOCALVAR uint32_t TouchDownTime = 0;
-LOCALVAR uint32_t TouchDownX = 0;
-LOCALVAR uint32_t TouchDownY = 0;
-
 LOCALFUNC int DirentCompare( const void* A, const void* B ) {
     struct dirent* Dir1 = ( struct dirent* ) A;
     struct dirent* Dir2 = ( struct dirent* ) B;
@@ -638,11 +645,6 @@ LOCALPROC InsertUI_Populate( void ) {
     // Turn filename strings into font buffers
     InsertUI_MakeText( );
 }
-
-LOCALVAR blnr IsInFileSelect = false;
-
-LOCALVAR int ScrollX = 0;
-LOCALVAR int ScrollY = 0;
 
 LOCALPROC UpdateScroll( void ) {
 	ScrollX = ( MainScreenWidth / 2 ) - CurMouseH;
@@ -816,9 +818,6 @@ LOCALPROC DrawKeyHighlight( int Key ) {
     }
 }
 
-// Forward declaration needed
-LOCALVAR ui5b theKeys[ ];
-
 // Highlights all keys that the emulated macintosh sees as down
 LOCALPROC HighlightTheDownKeys( void ) {
 	uint8_t* KeyboardPtr = ( uint8_t* ) theKeys;
@@ -836,8 +835,6 @@ LOCALPROC HighlightTheDownKeys( void ) {
 		}
 	}
 }
-
-const char* TestStr = "start";
 
 LOCALPROC DrawSubScreen( void ) {
 	float x = 0;
@@ -910,18 +907,7 @@ LOCALPROC DrawSubScreen( void ) {
 	} else {
 		C2D_DrawSprite( &ScreenSpriteSub );
 	}
-
-/*
-    DrawKeyHighlight( ShiftHeld ? MKC_Shift : 0xFF );
-    DrawKeyHighlight( CommandHeld ? MKC_Command : 0xFF );
-    DrawKeyHighlight( OptionHeld ? MKC_Option : 0xFF );
-    DrawKeyHighlight( ControlHeld ? MKC_CM : 0xFF );
-    DrawKeyHighlight( CapsHeld ? MKC_CapsLock : 0xFF );
-*/
 }
-
-LOCALVAR int MouseX = 0;
-LOCALVAR int MouseY = 0;
 
 LOCALFUNC blnr Sony_Insert2(char *s);
 
@@ -1490,19 +1476,60 @@ LOCALPROC CheckAndUpdateColormap( void ) {
 LOCALPROC HaveChangedScreenBuff(ui4r top, ui4r left,
 	ui4r bottom, ui4r right)
 {
-	const uint8_t* Src = ( const uint8_t* ) GetCurDrawBuff( );
-
-#if vMacScreenDepth > 0
-	if ( UseColorMode == false ) {
-		UpdateMainScreen_1BPP( Src, top, bottom, left, right );
-	} else {
-		CheckAndUpdateColormap( );
-		UpdateMainScreen( Src, top, bottom, left, right );
+	if ( svcWaitSynchronization( RenderThreadBusyMutex, 0 ) == 0 ) {
+		svcReleaseMutex( RenderThreadBusyMutex );
+		svcSignalEvent( RenderThreadUpdateEvent );
 	}
-#else
-	UpdateMainScreen( Src, top, bottom, left, right );
-#endif
 }
+
+void RenderThread( void* Param ) {
+	bool TextureNeedsUpdating = false;
+	volatile static char Buffer[ 64 ];
+	uint64_t a = 0;
+	uint64_t b = 0;
+
+	RenderThreadRun = true;
+	svcSignalEvent( RenderThreadReadyEvent );
+
+	while ( RenderThreadRun ) {
+		if ( svcWaitSynchronization( RenderThreadUpdateEvent, 1000 ) == 0 ) {
+			svcClearEvent( RenderThreadUpdateEvent );
+
+			svcWaitSynchronization( RenderThreadBusyMutex, INT64_MAX );
+				a = svcGetSystemTick( );
+				#if vMacScreenDepth > 0
+					if ( UseColorMode == falseblnr ) {
+						UpdateMainScreen_1BPP( GetCurDrawBuff( ), 0, vMacScreenHeight, 0, vMacScreenWidth );
+					} else {
+						CheckAndUpdateColormap( );
+						UpdateMainScreen( GetCurDrawBuff( ), 0, vMacScreenHeight, 0, vMacScreenWidth );
+					}
+				#else
+					UpdateMainScreen( GetCurDrawBuff( ), 0, vMacScreenHeight, 0, vMacScreenWidth );
+				#endif
+				b = svcGetSystemTick( ) - a;
+			svcReleaseMutex( RenderThreadBusyMutex );
+
+			sprintf( Buffer, "Display took %.2fms", ( ( double ) b ) / ( double ) CPU_TICKS_PER_MSEC );
+			TestStr = Buffer;
+
+			TextureNeedsUpdating = true;
+		}
+
+		C3D_FrameBegin( C3D_FRAME_SYNCDRAW );
+			if ( TextureNeedsUpdating ) {
+				UpdateFBTexture( MainTextureSize );
+				TextureNeedsUpdating = false;
+			}
+
+			DrawMainScreen( );
+			DrawSubScreen( );
+		C3D_FrameEnd( 0 );
+	}
+
+	threadExit( 0 );
+}
+
 
 LOCALPROC MyDrawChangesAndClear(void)
 {
@@ -1606,7 +1633,7 @@ GLOBALPROC DoKeyCode( int Key, blnr Down )
 
 /* --- time, date, location --- */
 
-#define dbglog_TimeStuff (0 && dbglog_HAVE)
+#define dbglog_TimeStuff (1 && dbglog_HAVE)
 
 LOCALVAR ui5b TrueEmulatedTime = 0;
 
@@ -2525,12 +2552,14 @@ LOCALPROC CheckForSystemEvents(void)
 		if ( Keys_Up & KEY_SELECT ) {
 			HideUI = ! HideUI;
 		}
-
+/*
 		if ( C3D_FrameBegin( C3D_FRAME_NONBLOCK ) == true ) {
 			DrawMainScreen( );
 			DrawSubScreen( );
 			C3D_FrameEnd( 0 );
 		}
+*/
+		svcSleepThread( 0 );
 	}
 }
 
@@ -2552,7 +2581,7 @@ label_retry:
 
 	if (ExtraTimeNotOver()) {
 		// tara
-		//svcSleepThread( ( NextIntTime - LastTime ) * 1000000 );
+		svcSleepThread( 0 );
 		goto label_retry;
 	}
 
@@ -2569,10 +2598,10 @@ label_retry:
 
 	OnTrueTime = TrueEmulatedTime;
 
-	TestStr = ( EmLagTime ) ? "<1x" : ">=1x";
+	//TestStr = ( EmLagTime ) ? "<1x" : ">=1x";
 
 #if dbglog_TimeStuff
-	dbglog_writelnNum("WaitForNextTick, OnTrueTime", OnTrueTime);
+	//dbglog_writelnNum("WaitForNextTick, OnTrueTime", OnTrueTime);
 #endif
 }
 
@@ -2643,14 +2672,48 @@ LOCALPROC UnallocMyMemory(void)
 extern void Profile_Start( void );
 extern void Profile_Stop( void );
 
+LOCALFUNC blnr MTInit( void ) {
+	APT_SetAppCpuTimeLimit( 30 );
+
+    svcCreateEvent( &RenderThreadReadyEvent, RESET_ONESHOT );
+    svcCreateEvent( &RenderThreadUpdateEvent, RESET_ONESHOT );
+    svcCreateMutex( &RenderThreadBusyMutex, false );
+
+    RenderThreadHandle = threadCreate( RenderThread, NULL, 16384, 0x20, ( IsNew3DS ) ? 2 : 1, false );
+
+	if ( RenderThreadHandle == NULL ) {
+		return ! ShowError( "Failed to create render thread\n" );
+	}
+
+	svcWaitSynchronization( RenderThreadReadyEvent, INT64_MAX );
+	svcClearEvent( RenderThreadReadyEvent );
+
+	return trueblnr;
+}
+
+LOCALPROC MTUnInit( void ) {
+    if ( RenderThreadHandle ) {
+        RenderThreadRun = false;
+
+        threadJoin( RenderThreadHandle, UINT64_MAX );
+        threadFree( RenderThreadHandle );
+
+        svcClearEvent( RenderThreadReadyEvent );
+        svcClearEvent( RenderThreadUpdateEvent );
+        svcReleaseMutex( RenderThreadBusyMutex );
+    }
+
+    svcCloseHandle( RenderThreadReadyEvent );
+    svcCloseHandle( RenderThreadUpdateEvent );
+    svcCloseHandle( RenderThreadBusyMutex );
+}
+
 LOCALFUNC blnr InitOSGLU(void)
 {
-	bool IsNew3DS = false;
-
 	APT_CheckNew3DS( &IsNew3DS );
 
 	if ( IsNew3DS ) {
-		osSetSpeedupEnable( true );
+		osSetSpeedupEnable( false );
 	}
 
 	InitKeyCodes( );
@@ -2670,14 +2733,8 @@ LOCALFUNC blnr InitOSGLU(void)
 	if (Screen_Init())
 	if (CreateMainWindow())
 	if (WaitForRom())
+	if ( MTInit( ))
 	{
-#if vMacScreenDepth > 0
-		// Disable sound for colour screens on o3ds
-		if ( IsNew3DS == false ) {
-			HaveSoundOut = falseblnr;
-		}
-#endif
-
 		return trueblnr;
 	}
 	return falseblnr;
@@ -2707,6 +2764,8 @@ LOCALPROC UnInitOSGLU(void)
 	UnallocMyMemory();
 
 	CheckSavedMacMsg();
+
+	MTUnInit( );
 
 	DestroyMainScreen( );
 	DestroySubScreen( );
